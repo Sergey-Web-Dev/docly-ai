@@ -76,6 +76,13 @@ test('record the illustrated walkthrough', async ({ page, browser }, testInfo) =
   // 07 Demo site on another origin, no owner cookies, widget open and answering
   const visitorContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   try {
+    // The widget lives in a closed shadow root, which Playwright cannot pierce; force it open for locators.
+    await visitorContext.addInitScript(() => {
+      const attach = Element.prototype.attachShadow;
+      Element.prototype.attachShadow = function (init: ShadowRootInit): ShadowRoot {
+        return attach.call(this, { ...init, mode: 'open' });
+      };
+    });
     const visitor = await visitorContext.newPage();
     const demoHtml = readFileSync(path.join(__dirname, '..', 'demo-site', 'index.html'), 'utf8');
     await visitor.route(`${DEMO_HOST}/**`, (route) => route.fulfill({ contentType: 'text/html', body: demoHtml }));
@@ -84,7 +91,7 @@ test('record the illustrated walkthrough', async ({ page, browser }, testInfo) =
     const frame = visitor.frameLocator('iframe[title="Chat assistant"]');
     await expect(frame.getByText('Hi! Ask me about Acme.')).toBeVisible();
     const input = frame.getByLabel('Your question');
-    await expect.poll(() => input.evaluate((el) => Object.keys(el).some((key) => key.startsWith('__reactProps'))), { timeout: 60_000 }).toBe(true);
+    await expect(frame.locator('[data-ready="true"]').first()).toBeAttached({ timeout: 60_000 });
     await input.fill('How many vacation days do new hires get?');
     await frame.getByRole('button', { name: 'Send' }).click();
     await expect(frame.locator('li[data-role="assistant"]')).toHaveCount(2, { timeout: ANSWER_TIMEOUT });
@@ -99,7 +106,7 @@ test('record the illustrated walkthrough', async ({ page, browser }, testInfo) =
   await expect(page.getByRole('button', { name: 'Demo upgrade — no payment' })).toBeVisible();
   await shot(page, '08-billing');
   await page.getByRole('button', { name: 'Demo upgrade — no payment' }).click();
-  await page.getByRole('button', { name: 'Confirm' }).click();
+  await page.getByRole('button', { name: 'Confirm switch to Pro' }).click();
   await expect(page.getByTestId('plan-badge')).toHaveText('Pro plan');
   await expect(page.getByTestId('billing-documents')).toHaveText('1 / 10');
   await shot(page, '09-after-upgrade');

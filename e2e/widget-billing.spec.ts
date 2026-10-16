@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { expect, test, type FrameLocator, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type FrameLocator, type Page } from '@playwright/test';
 import { setMonthlyUsage, signUpFresh } from './helpers';
 
 const fixture = (name: string): string => path.join(__dirname, 'fixtures', name);
@@ -21,16 +21,43 @@ async function openDemoPage(page: Page, snippet: string): Promise<void> {
   await page.route('http://acme-demo.test/**', (route) =>
     route.fulfill({
       contentType: 'text/html',
-      body: `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Acme Robotics</title></head><body><h1>Acme Robotics</h1><p>A third-party site.</p>${snippet}</body></html>`,
+      body: `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Acme Robotics</title></head><body><h1>Acme Robotics</h1><p>A third-party site.</p>${snippet}</body></html>`,
     }),
   );
   await page.goto(DEMO_URL);
 }
 
-// The iframe hydrates after it renders (slow on a cold dev server); typing before that is lost, so wait for React first.
+// The widget lives in a closed shadow root, which Playwright cannot pierce. Tests that drive it through locators force
+// the root open (the widget code is unchanged); tests that verify "closed" use captureShadowRoot instead.
+async function openShadowRoots(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init: ShadowRootInit): ShadowRoot {
+      return attach.call(this, { ...init, mode: 'open' });
+    };
+  });
+}
+
+// Keeps the root closed for the page, but hands the test a reference for inspection via page.evaluate.
+async function captureShadowRoot(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init: ShadowRootInit): ShadowRoot {
+      const root = attach.call(this, init);
+      (window as unknown as { __doclyRoot: ShadowRoot }).__doclyRoot = root;
+      return root;
+    };
+  });
+}
+
+function widgetSnippet(botId: string): string {
+  return `<script src="http://localhost:3000/widget.js" data-bot-id="${botId}" async></script>`;
+}
+
+// The iframe hydrates after it renders (slow on a cold dev server); the textarea stays disabled and data-ready is unset until then.
 async function askInFrame(frame: FrameLocator, question: string): Promise<void> {
   const input = frame.getByLabel('Your question');
-  await expect.poll(() => input.evaluate((el) => Object.keys(el).some((key) => key.startsWith('__reactProps'))), { timeout: 60_000 }).toBe(true);
+  await expect(frame.locator('[data-ready="true"]').first()).toBeAttached({ timeout: 60_000 });
   await input.fill(question);
   await frame.getByRole('button', { name: 'Send' }).click();
 }
@@ -57,6 +84,69 @@ test('an unknown bot shows the unavailable card', async ({ page }, testInfo) => 
   await expect(page.getByText('This assistant is unavailable')).toBeVisible();
 });
 
+test('unknown bot on a phone: full-screen dialog, scroll lock, Esc closes and focus returns to the launcher', async ({ context, page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'Needs the small layout.');
+  // The built-in context is fresh (no owner cookies) and carries the Chrome PNA flags from test.use above.
+  {
+    await openShadowRoots(context);
+    await openDemoPage(page, widgetSnippet(randomUUID()));
+    const viewport = page.viewportSize();
+    expect(viewport).not.toBeNull();
+
+    await page.getByRole('button', { name: 'Open chat' }).click();
+    const panel = page.getByRole('dialog', { name: 'Chat' });
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute('aria-modal', 'true');
+    const box = await panel.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box!.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(box!.width - viewport!.width)).toBeLessThanOrEqual(2);
+    expect(Math.abs(box!.height - viewport!.height)).toBeLessThanOrEqual(2);
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden');
+
+    const frame = page.frameLocator('iframe[title="Chat assistant"]');
+    await expect(frame.getByText('This assistant is unavailable')).toBeVisible({ timeout: 30_000 });
+    // The embed page registers its Esc listener after hydration; retry the key until the panel closes.
+    await expect(async () => {
+      await page.keyboard.press('Escape');
+      await expect(panel).toBeHidden({ timeout: 1_000 });
+    }).toPass({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: 'Open chat' })).toBeFocused();
+    expect(await page.evaluate(() => document.body.style.overflow)).toBe('');
+  }
+});
+
+test('widget on desktop: launcher is keyboard reachable with a visible focus ring, root closed, frame opaque', async ({ context, page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Desktop layout.');
+  {
+    await captureShadowRoot(context);
+    await openDemoPage(page, widgetSnippet(randomUUID()));
+    await expect.poll(() => page.evaluate(() => Boolean((window as unknown as { __doclyRoot?: ShadowRoot }).__doclyRoot))).toBe(true);
+
+    // Closed shadow root: the host page cannot reach into the widget.
+    expect(await page.evaluate(() => document.getElementById('docly-widget')?.shadowRoot ?? null)).toBeNull();
+
+    await page.keyboard.press('Tab');
+    const focus = await page.evaluate(() => {
+      const root = (window as unknown as { __doclyRoot: ShadowRoot }).__doclyRoot;
+      const active = root.activeElement;
+      if (!active) return null;
+      const style = getComputedStyle(active);
+      return { label: active.getAttribute('aria-label'), visible: active.matches(':focus-visible'), outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth };
+    });
+    expect(focus).toEqual({ label: 'Open chat', visible: true, outlineStyle: 'solid', outlineWidth: '3px' });
+
+    await page.keyboard.press('Enter');
+    // Until the cross-origin navigation commits, the iframe still shows its same-origin about:blank; wait for it to become opaque.
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __doclyRoot: ShadowRoot }).__doclyRoot.querySelector('iframe')?.contentDocument === null), { timeout: 30_000 })
+      .toBe(true);
+    const ariaModal = await page.evaluate(() => (window as unknown as { __doclyRoot: ShadowRoot }).__doclyRoot.querySelector('[role="dialog"]')?.getAttribute('aria-modal') ?? null);
+    expect(ariaModal).toBeNull();
+  }
+});
+
 test('widget on another origin, unpublish, demo billing and public quota', async ({ page, browser }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Calls real Gemini; run on desktop only to save quota.');
   test.setTimeout(300_000);
@@ -77,6 +167,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
   await published.check();
   await expect(published).toBeChecked();
   await expect(page.getByText('Unpublished:')).toHaveCount(0);
+  await expect(page.getByText('Saving…')).toHaveCount(0);
   const snippet = (await page.getByTestId('embed-snippet').innerText()).trim();
   expect(snippet).toMatch(/^<script src="http:\/\/localhost:3000\/widget\.js" data-bot-id="[0-9a-f-]{36}" async><\/script>$/);
 
@@ -84,6 +175,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
   const visitorContext = await browser.newContext();
   try {
     expect(await visitorContext.cookies()).toHaveLength(0);
+    await openShadowRoots(visitorContext);
     const visitor = await visitorContext.newPage();
     await openDemoPage(visitor, snippet);
 
@@ -111,6 +203,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     // Unpublish in the owner context, the widget now says unavailable.
     await published.uncheck();
     await expect(page.getByText("Unpublished: visitors will see 'This assistant is unavailable'.")).toBeVisible();
+    await expect(page.getByText('Saving…')).toHaveCount(0);
     await visitor.reload();
     await visitor.getByRole('button', { name: 'Open chat' }).click();
     await expect(visitor.frameLocator('iframe[title="Chat assistant"]').getByText('This assistant is unavailable')).toBeVisible();
@@ -121,8 +214,10 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
     await page.getByRole('button', { name: 'Demo upgrade — no payment' }).click();
     await expect(page.getByText('Switch to Pro? This is a demo — nothing is charged.')).toBeVisible();
-    await page.getByRole('button', { name: 'Confirm' }).click();
+    await expect(page.getByRole('button', { name: 'Confirm switch to Pro' })).toBeFocused();
+    await page.getByRole('button', { name: 'Confirm switch to Pro' }).click();
     await expect(page.getByTestId('plan-badge')).toHaveText('Pro plan');
+    await expect(page.getByRole('status').filter({ hasText: 'You are now on the Pro plan.' })).toBeFocused();
     await expect(page.getByTestId('billing-documents')).toHaveText('1 / 10');
     await expect(page.getByRole('button', { name: 'Current plan' })).toBeDisabled();
 
@@ -136,7 +231,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     // Billing: downgrade keeps documents, blocks new uploads.
     await page.goto('/dashboard/billing');
     await page.getByRole('button', { name: 'Downgrade to Free' }).click();
-    await page.getByRole('button', { name: 'Confirm' }).click();
+    await page.getByRole('button', { name: 'Confirm switch to Free' }).click();
     await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
     await expect(page.getByTestId('billing-over-limit')).toContainText('You have 3 documents; the Free plan allows 2.');
     await page.goto('/dashboard');
@@ -147,6 +242,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     // Public quota: the owner's monthly limit applies to visitors, with a neutral message.
     await page.getByRole('switch', { name: /Published/ }).check();
     await expect(page.getByText('Unpublished:')).toHaveCount(0);
+    await expect(page.getByText('Saving…')).toHaveCount(0);
     await setMonthlyUsage(email, 30);
     await visitor.reload();
     await visitor.getByRole('button', { name: 'Open chat' }).click();
