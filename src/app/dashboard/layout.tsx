@@ -1,17 +1,15 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { signOut } from '@/app/(auth)/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { requireUser } from '@/lib/auth/require-user';
 import { getPlan } from '@/lib/plans';
-import { createClient } from '@/lib/supabase/server';
 
 export default async function DashboardLayout({ children }: { readonly children: React.ReactNode }): Promise<React.ReactElement> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const { user, supabase } = await requireUser();
 
-  const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('plan').eq('id', user.id).single();
+  if (profileError) console.error('[dashboard/layout] profiles select failed', { operation: 'select profiles.plan', userId: user.id, code: profileError.code, message: profileError.message });
   const plan = getPlan(profile?.plan);
 
   return (
