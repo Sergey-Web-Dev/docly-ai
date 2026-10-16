@@ -12,6 +12,9 @@
       <DEMO_URL>/?app=https://YOUR-APP.vercel.app&bot=YOUR_BOT_ID
       http://localhost:4000/?app=http://localhost:3000&bot=<uuid>
 
+    The "app" parameter is only accepted for http://localhost:<port>, http://127.0.0.1:<port> and the origins listed in
+    ALLOWED_APP_ORIGINS (top of the script at the bottom of this file): add your deployed app origin there.
+
     Serve it locally on a different origin than the app (the app runs on :3000):
       python3 -m http.server 4000 -d demo-site
 
@@ -130,8 +133,14 @@
 
   <script>
     // Test any deployment without editing this file: ?app=https://your-app.vercel.app&bot=<bot uuid>
+    // The page loads a script from the "app" origin, so only localhost and the origins listed here are accepted.
+    // To use your deployed app, add its origin (scheme + host, no path) below, e.g. 'https://my-docly.vercel.app'.
+    var ALLOWED_APP_ORIGINS = [];
+
     (function () {
       'use strict';
+      var LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):\d{1,5}$/;
+      var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       var params = new URLSearchParams(window.location.search);
       var app = params.get('app');
       var bot = params.get('bot');
@@ -152,7 +161,11 @@
         status.textContent = 'The "app" parameter must be a valid http(s) URL.';
         return;
       }
-      if (!/^[0-9a-f-]{36}$/i.test(bot)) {
+      if (!LOCAL_ORIGIN.test(origin) && ALLOWED_APP_ORIGINS.indexOf(origin) === -1) {
+        status.textContent = 'Rejected: ' + origin + ' is not an allowed app origin. Use http://localhost:<port> or add the origin to ALLOWED_APP_ORIGINS at the top of this script.';
+        return;
+      }
+      if (!UUID.test(bot)) {
         status.textContent = 'The "bot" parameter must be a bot id (uuid).';
         return;
       }
