@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Docly AI
 
-## Getting Started
+Your docs. Instant answers. Upload company documents, ask questions in a chat, and embed the same assistant on your website.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui (base-nova) + Lucide icons
+- Supabase (Auth, Postgres with RLS)
+- Vitest (unit and integration) and Playwright (E2E)
+
+## Setup
 
 ```bash
+cp .env.example .env.local   # then fill in your Supabase values
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Supabase
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Migrations live in `supabase/migrations` and are applied in filename order.
+- In the Supabase dashboard, go to Authentication > Providers > Email and turn **Confirm email off**. Sign-up signs the user in immediately and relies on this.
 
-## Learn More
+## Tests
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npm run typecheck
+npm test                  # unit tests
+npm run test:integration  # needs SUPABASE_SECRET_KEY in .env.local
+npm run test:e2e          # Playwright
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+A full README (architecture, widget embedding, deployment) arrives in Epic 04.
