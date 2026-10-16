@@ -31,7 +31,7 @@ External site ─► <script src="<APP_URL>/widget.js" data-bot-id="..."> ─►
 
 POST /api/chat
   session user owns the bot  -> owner mode   (works unpublished)
-  anyone else                -> public mode  (bot must be published; per-IP and per-bot rate limit;
+  anyone else                -> public mode  (bot must be published; per-IP, per-hour and per-bot rate limits;
                                               messages count against the OWNER's monthly quota)
   -> reserve_message (atomic quota) -> embed question -> match_chunks (always filtered by bot id)
   -> Gemini answers only from the retrieved chunks (or says it does not know) -> refund on failure
@@ -132,7 +132,7 @@ python3 -m http.server 4000 -d demo-site
 # http://localhost:4000/?app=http://localhost:3000&bot=<BOT_ID>
 ```
 
-With the `app` and `bot` query parameters the page injects the widget script for that deployment, so no file edits are needed. Without them it shows the placeholder snippet only.
+With the `app` and `bot` query parameters the page injects the widget script for that deployment. `app` must be `http://localhost:<port>`, `http://127.0.0.1:<port>` or an origin listed in the `ALLOWED_APP_ORIGINS` array at the top of the page script (add your deployed app origin there); anything else is rejected with a message. Without them it shows the placeholder snippet only.
 
 ## Deployment
 
@@ -148,10 +148,13 @@ With the `app` and `bot` query parameters the page injects the widget script for
 - Ingestion is synchronous (at most 5 MB, 200 chunks, 60 second function limit), with no queue.
 - No streaming answers, no source citations and no saved chat history. The conversation lives in the browser tab only.
 - One bot per account.
-- Billing is simulated: the Free/Pro switch changes the enforced limits but collects no payment. A downgrade deletes nothing; new uploads are blocked until the document count is within the Free limit.
+- Billing is simulated: the Free/Pro switch changes the enforced limits but collects no payment. A downgrade deletes nothing; new uploads are blocked until the document count is below the Free limit.
 - Gemini free tier has per-minute and per-day rate limits (answers can fail with a friendly "temporarily unavailable" message), and on the free tier Google may use prompts to improve its products. Do not upload confidential documents to a free-tier key.
 - A Supabase free project pauses after about a week of inactivity. Open the dashboard to wake it before a review.
-- The public rate limit is 10 messages per minute per visitor IP and bot. Visitors share the owner's monthly quota (Free 30, Pro 300).
+- Public rate limits, all per bot: 10 messages per minute per visitor, 20 per hour per visitor, and 30 per minute across all visitors. Visitors share the owner's monthly quota (Free 30, Pro 300).
+- Rate limiting is only reliable behind Vercel. The visitor IP comes from headers that only Vercel's edge sets trustworthily (`x-vercel-forwarded-for`, `x-real-ip`); anywhere else (local dev, other hosts) the right-most `x-forwarded-for` hop or `x-real-ip` is used, and if neither exists all visitors share one `unknown` bucket (logged once). Do not rely on the limiter for abuse protection outside Vercel.
+- The limits use fixed windows, so a burst straddling a window boundary can briefly reach up to twice the limit.
+- On localhost the demo page (`:4000`) and the app (`:3000`) are different origins but the same site, so a signed-in owner's session cookie is sent and the widget chats in owner mode (works unpublished, no rate limit). Use a private window to test public mode.
 
 ## Security notes
 
@@ -159,7 +162,9 @@ With the `app` and `bot` query parameters the page injects the widget script for
 - **Privileged functions are server-only.** `create_document`, `complete_document`, `reserve_message`, `refund_message`, `match_chunks` and `hit_rate_limit` have `EXECUTE` granted to `service_role` only (browsers cannot call them). Plan limits are passed in from `src/lib/plans.ts`.
 - **The plan cannot be self-edited.** Clients have no UPDATE on `profiles`; `setPlan` writes it with the admin client for the session user only.
 - **Public mode never trusts the session.** Owner and plan come from the bot row and the owner's profile. Unknown and unpublished bots return the same "unavailable" answer.
-- **No raw IPs are stored.** The rate-limit key is `chat:<botId>:<sha256(ip + RATE_LIMIT_SALT)>` truncated to 32 hex characters.
+- **No raw IPs are stored.** The per-visitor rate-limit keys are `chat:<botId>:<ipHash>` (minute) and `chat:<botId>:<ipHash>:h` (hour), where `ipHash` is `sha256(ip + "|" + RATE_LIMIT_SALT)` truncated to 32 hex characters. The per-bot key is `chat:<botId>`. IPv6 addresses are reduced to their /64 prefix before hashing and IPv4-mapped IPv6 is treated as IPv4.
+- **Header trust.** Client IP headers are trusted only when `VERCEL` is set (see Limitations). A missing `RATE_LIMIT_SALT` fails public chat closed with a logged error.
+- **Demo-site allowlist.** `demo-site/index.html` injects a script from the `app` query parameter, so it only accepts `http://localhost:<port>`, `http://127.0.0.1:<port>` and origins listed in `ALLOWED_APP_ORIGINS` at the top of its script (add your deployed app origin there) and a strict bot uuid.
 - **Secrets stay on the server.** The Supabase secret key and the Gemini key are only read in server-only modules and have no `NEXT_PUBLIC_` prefix.
 - **Framing.** `/embed/*` allows being framed from any site (`frame-ancestors *`); every other route sends `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 - **Prompt injection.** Document text is placed in randomised delimiters with angle brackets escaped, and the model is told to treat it as data.

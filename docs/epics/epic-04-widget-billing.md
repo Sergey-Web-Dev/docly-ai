@@ -31,7 +31,7 @@ Let the owner publish the bot and embed it on any website with one copyable `<sc
 ### Billing (mock)
 9. **Pricing / plan modal** in the dashboard rendered from the shared plan configuration, showing current plan and usage (documents used/limit, messages used/limit this month).
 10. **Mock upgrade/downgrade:** buttons labelled **"Demo upgrade — no payment"** / downgrade, with a confirmation dialog; server action updates `profiles.plan` for the authenticated owner only.
-11. **Downgrade rule:** existing documents are kept; new uploads blocked until the document count is within the Free limit; message quota uses the Free limit immediately.
+11. **Downgrade rule:** existing documents are kept; new uploads blocked until the document count is below the Free limit; message quota uses the Free limit immediately.
 12. **Upgrade CTAs** from quota errors (Epics 02/03) open this plan modal.
 
 ### Release
@@ -125,7 +125,7 @@ Let the owner publish the bot and embed it on any website with one copyable `<sc
 - **BR-04.4** Widget traffic counts against the bot owner's monthly message quota.
 - **BR-04.5** Quotas and throttling are enforced server-side, including for anonymous visitors.
 - **BR-04.6** No real payments; all billing actions are clearly labelled as demo.
-- **BR-04.7** Downgrade never deletes data; it blocks new uploads beyond Free limits until usage is within quota.
+- **BR-04.7** Downgrade never deletes data; it blocks new uploads until the document count is below the Free limit.
 - **BR-04.8** The widget is isolated in an iframe and does not read or modify the host page.
 - **BR-04.9** Plan limits come only from the shared plan configuration.
 
