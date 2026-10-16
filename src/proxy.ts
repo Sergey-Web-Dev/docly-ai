@@ -6,6 +6,7 @@ const AUTH_PAGES = ['/login', '/signup'];
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({ request });
+  let cacheHeaders: Record<string, string> = {};
 
   const supabase = createServerClient(publicEnv.supabaseUrl, publicEnv.supabasePublishableKey, {
     cookies: {
@@ -16,7 +17,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        Object.entries(headers ?? {}).forEach(([key, value]) => response.headers.set(key, value));
+        cacheHeaders = { ...cacheHeaders, ...headers };
+        applyHeaders(response, cacheHeaders);
       },
     },
   });
@@ -25,14 +27,19 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const isSignedIn = Boolean(data?.claims);
   const { pathname } = request.nextUrl;
 
-  if (!isSignedIn && pathname.startsWith('/dashboard')) return redirectWithCookies(request, '/login', response);
-  if (isSignedIn && AUTH_PAGES.includes(pathname)) return redirectWithCookies(request, '/dashboard', response);
+  if (!isSignedIn && pathname.startsWith('/dashboard')) return redirectWithCookies(request, '/login', response, cacheHeaders);
+  if (isSignedIn && AUTH_PAGES.includes(pathname)) return redirectWithCookies(request, '/dashboard', response, cacheHeaders);
   return response;
 }
 
-function redirectWithCookies(request: NextRequest, path: string, from: NextResponse): NextResponse {
+function applyHeaders(target: NextResponse, headers: Readonly<Record<string, string>>): void {
+  Object.entries(headers).forEach(([key, value]) => target.headers.set(key, value));
+}
+
+function redirectWithCookies(request: NextRequest, path: string, from: NextResponse, headers: Readonly<Record<string, string>>): NextResponse {
   const redirect = NextResponse.redirect(new URL(path, request.url));
   from.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+  applyHeaders(redirect, headers);
   return redirect;
 }
 
