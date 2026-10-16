@@ -11,6 +11,14 @@ describe('normalizeText', () => {
   it('should collapse whitespace and strip NUL when text is messy', () => {
     expect(normalizeText('a\r\n\r\n\r\n\tb  c\u0000')).toBe('a\n\nb c');
   });
+
+  it('should replace lone surrogates with U+FFFD', () => {
+    expect(normalizeText('a\ud800b\udc00c')).toBe('a\ufffdb\ufffdc');
+  });
+
+  it('should keep valid surrogate pairs', () => {
+    expect(normalizeText('hi \u{1F600}')).toBe('hi \u{1F600}');
+  });
 });
 
 describe('chunkText', () => {

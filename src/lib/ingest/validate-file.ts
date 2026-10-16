@@ -19,7 +19,7 @@ export function validateFile(file: FileCandidate): FileValidation {
   const kind = kindFromName(file.name);
   if (!kind) return { ok: false, error: 'Only PDF and TXT files are supported.' };
   if (file.name.length > 255) return { ok: false, error: 'File name is too long.' };
-  if (file.size <= 0) return { ok: false, error: 'The file is empty.' };
+  if (!(file.size > 0)) return { ok: false, error: 'The file is empty.' };
   if (file.size > MAX_FILE_BYTES) return { ok: false, error: 'Files must be 5 MB or smaller.' };
   if (!MIME_BY_KIND[kind].includes(file.type.split(';')[0]?.trim() ?? '')) return { ok: false, error: 'Only PDF and TXT files are supported.' };
   if (!file.bytes) return { ok: true, kind };

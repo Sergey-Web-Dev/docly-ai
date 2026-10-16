@@ -27,6 +27,10 @@ describe('validateFile', () => {
     expect(validateFile({ name: 'a.txt', type: 'text/plain', size: 0 })).toEqual({ ok: false, error: 'The file is empty.' });
   });
 
+  it('should reject a NaN size', () => {
+    expect(validateFile({ name: 'a.txt', type: 'text/plain', size: Number.NaN })).toEqual({ ok: false, error: 'The file is empty.' });
+  });
+
   it('should reject a file larger than 5 MB', () => {
     expect(validateFile({ name: 'a.txt', type: 'text/plain', size: MAX_FILE_BYTES + 1 })).toEqual({ ok: false, error: 'Files must be 5 MB or smaller.' });
   });

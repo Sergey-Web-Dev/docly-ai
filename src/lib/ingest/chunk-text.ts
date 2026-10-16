@@ -3,6 +3,7 @@ import { CHUNK_OVERLAP, CHUNK_SIZE, MAX_CHUNKS, MAX_TEXT_CHARS, MIN_TEXT_CHARS }
 
 export function normalizeText(text: string): string {
   return text
+    .toWellFormed()
     .replace(/\r\n?/g, '\n')
     .replace(/\u0000/g, '')
     .replace(/[^\S\n]+/g, ' ')
@@ -27,7 +28,8 @@ export function prepareChunks(text: string): string[] {
   if (normalized.length < MIN_TEXT_CHARS) {
     throw new AppError('INGESTION_FAILED', "We couldn't find readable text in this file. Scanned PDFs are not supported.");
   }
-  return chunkText(normalized.slice(0, MAX_TEXT_CHARS)).slice(0, MAX_CHUNKS);
+  // Slicing can split a surrogate pair; Postgres jsonb rejects lone surrogates.
+  return chunkText(normalized.slice(0, MAX_TEXT_CHARS)).slice(0, MAX_CHUNKS).map((chunk) => chunk.toWellFormed());
 }
 
 function splitIntoPieces(text: string, limit: number): string[] {
