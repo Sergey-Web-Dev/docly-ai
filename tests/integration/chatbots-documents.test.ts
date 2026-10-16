@@ -80,9 +80,8 @@ describe('chatbots, documents, storage RLS and create_document', () => {
       await alice.client.from('chatbots').update({ welcome_message: 'Hi' }).eq('id', aliceBotId);
     });
 
-    it('should not let the owner set is_published or updated_at on update', async () => {
-      const publish = await alice.client.from('chatbots').update({ is_published: true }).eq('id', aliceBotId);
-      expect(publish.error?.code).toBe(INSUFFICIENT_PRIVILEGE);
+    // is_published became owner-updatable in Epic 04 (covered in widget-billing.test.ts).
+    it('should not let the owner set updated_at on update', async () => {
       const touch = await alice.client.from('chatbots').update({ updated_at: new Date().toISOString() }).eq('id', aliceBotId);
       expect(touch.error?.code).toBe(INSUFFICIENT_PRIVILEGE);
     });
