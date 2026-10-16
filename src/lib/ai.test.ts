@@ -53,4 +53,17 @@ describe('embedTexts', () => {
     embedContent.mockRejectedValue(new Error('quota'));
     await expect(embedTexts(['a'])).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE', message: PROVIDER_ERROR });
   });
+
+  it('should pass an abort signal so a hung call is bounded', async () => {
+    embedContent.mockResolvedValue(vectorsFor(1));
+    await embedTexts(['a']);
+    const config = (embedContent.mock.calls[0]?.[0] as { config: { abortSignal: AbortSignal } }).config;
+    expect(config.abortSignal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('should throw PROVIDER_UNAVAILABLE when one of several batches fails', async () => {
+    embedContent.mockImplementation(({ contents }: { contents: string[] }) =>
+      contents.length === 100 ? Promise.resolve(vectorsFor(100)) : Promise.reject(new Error('timeout')));
+    await expect(embedTexts(Array.from({ length: 150 }, (_, i) => `t${i}`))).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE' });
+  });
 });

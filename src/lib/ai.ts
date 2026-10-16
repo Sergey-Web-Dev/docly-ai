@@ -4,6 +4,7 @@ import { serverEnv } from '@/lib/env-server';
 import { AppError } from '@/lib/errors';
 import { EMBED_BATCH_SIZE, EMBEDDING_DIMENSIONS } from '@/lib/rag-config';
 
+const EMBED_TIMEOUT_MS = 20_000;
 const PROVIDER_ERROR = 'The AI service is unavailable right now. Please try again in a minute.';
 let client: GoogleGenAI | null = null;
 
@@ -13,12 +14,12 @@ function getClient(): GoogleGenAI {
 }
 
 export async function embedTexts(texts: readonly string[]): Promise<number[][]> {
-  const vectors: number[][] = [];
+  const batches: string[][] = [];
   for (let start = 0; start < texts.length; start += EMBED_BATCH_SIZE) {
-    const batch = texts.slice(start, start + EMBED_BATCH_SIZE);
-    vectors.push(...(await embedBatch(batch, 'RETRIEVAL_DOCUMENT')));
+    batches.push(texts.slice(start, start + EMBED_BATCH_SIZE));
   }
-  return vectors;
+  const results = await Promise.all(batches.map((batch) => embedBatch(batch, 'RETRIEVAL_DOCUMENT')));
+  return results.flat();
 }
 
 // Reused by embedQuery in Epic 03
@@ -28,7 +29,7 @@ async function embedBatch(batch: readonly string[], taskType: 'RETRIEVAL_DOCUMEN
     const response = await getClient().models.embedContent({
       model: serverEnv('GEMINI_EMBEDDING_MODEL'),
       contents: [...batch],
-      config: { taskType, outputDimensionality: EMBEDDING_DIMENSIONS },
+      config: { taskType, outputDimensionality: EMBEDDING_DIMENSIONS, abortSignal: AbortSignal.timeout(EMBED_TIMEOUT_MS) },
     });
     values = response.embeddings?.map((embedding) => embedding.values ?? []) ?? [];
   } catch (error) {
