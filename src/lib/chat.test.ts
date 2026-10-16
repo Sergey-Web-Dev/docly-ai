@@ -14,18 +14,18 @@ vi.mock('@/lib/ai', () => ({
 import { answerQuestion, type ChatTarget } from '@/lib/chat';
 import { AppError } from '@/lib/errors';
 import { PLANS } from '@/lib/plans';
-import { NOT_FOUND_ANSWER } from '@/lib/prompt';
+import { BLOCKED_ANSWER, NOT_FOUND_ANSWER } from '@/lib/prompt';
 
 interface Fake {
   readonly admin: SupabaseClient<Database>;
   readonly rpc: ReturnType<typeof vi.fn>;
 }
 
-function fakeAdmin(options: { reserve?: boolean; matches?: { content: string }[]; matchError?: boolean; usedCount?: number }): Fake {
-  const { reserve = true, matches = [], matchError = false, usedCount = 4 } = options;
+function fakeAdmin(options: { reserve?: string | null; reserveError?: boolean; refundFails?: boolean; matches?: { content: string }[]; matchError?: boolean; usedCount?: number }): Fake {
+  const { reserve = '2026-10-01', reserveError = false, refundFails = false, matches = [], matchError = false, usedCount = 4 } = options;
   const rpc = vi.fn((name: string) => {
-    if (name === 'reserve_message') return Promise.resolve({ data: reserve, error: null });
-    if (name === 'refund_message') return Promise.resolve({ data: null, error: null });
+    if (name === 'reserve_message') return Promise.resolve(reserveError ? { data: null, error: { message: 'db down' } } : { data: reserve, error: null });
+    if (name === 'refund_message') return refundFails ? Promise.reject(new Error('refund down')) : Promise.resolve({ data: null, error: null });
     if (matchError) return Promise.resolve({ data: null, error: { message: 'db down' } });
     return Promise.resolve({ data: matches, error: null });
   });
@@ -46,12 +46,13 @@ function callsTo(rpc: ReturnType<typeof vi.fn>, name: string): unknown[][] {
 describe('answerQuestion', () => {
   beforeEach(() => {
     embedQuery.mockReset().mockResolvedValue(vector);
-    generateAnswer.mockReset().mockResolvedValue('You get 20 days.');
+    generateAnswer.mockReset().mockResolvedValue({ kind: 'answer', text: 'You get 20 days.', finishReason: 'STOP' });
+    vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   it('should throw QUOTA_EXCEEDED with upgrade for a free owner and not embed when the quota is used up', async () => {
-    const { admin } = fakeAdmin({ reserve: false });
+    const { admin } = fakeAdmin({ reserve: null });
     await expect(answerQuestion(admin, ownerFree, 'q')).rejects.toMatchObject({
       code: 'QUOTA_EXCEEDED',
       upgrade: true,
@@ -61,13 +62,13 @@ describe('answerQuestion', () => {
   });
 
   it('should not offer an upgrade when a pro owner runs out of messages', async () => {
-    const { admin } = fakeAdmin({ reserve: false });
+    const { admin } = fakeAdmin({ reserve: null });
     const error = await answerQuestion(admin, { ...ownerFree, plan: PLANS.pro }, 'q').catch((e: unknown) => e);
     expect(error).toMatchObject({ code: 'QUOTA_EXCEEDED', upgrade: false });
   });
 
   it('should use a neutral message and no upgrade in public mode when the quota is used up', async () => {
-    const { admin } = fakeAdmin({ reserve: false });
+    const { admin } = fakeAdmin({ reserve: null });
     const error = await answerQuestion(admin, { ...ownerFree, mode: 'public' }, 'q').catch((e: unknown) => e);
     expect(error).toMatchObject({ code: 'QUOTA_EXCEEDED', upgrade: false, message: 'This assistant is temporarily unavailable. Please try again later.' });
   });
@@ -78,12 +79,61 @@ describe('answerQuestion', () => {
     expect(callsTo(rpc, 'reserve_message')[0]?.[1]).toEqual({ p_owner_id: 'owner-1', p_limit: 300 });
   });
 
+  it('should treat a not-found sentence with different case and whitespace as ungrounded', async () => {
+    generateAnswer.mockResolvedValue({ kind: 'answer', text: `  ${NOT_FOUND_ANSWER.toUpperCase()}\n`, finishReason: 'STOP' });
+    const { admin } = fakeAdmin({ matches: [{ content: 'c' }] });
+    await expect(answerQuestion(admin, ownerFree, 'q')).resolves.toMatchObject({ isGrounded: false });
+  });
+
+  it('should refund the reserved month and return the fixed answer when the provider blocks the request', async () => {
+    generateAnswer.mockResolvedValue({ kind: 'blocked', text: '', finishReason: 'SAFETY' });
+    const { admin, rpc } = fakeAdmin({ matches: [{ content: 'c' }], reserve: '2026-09-01' });
+    const result = await answerQuestion(admin, ownerFree, 'q');
+    expect(result).toMatchObject({ answer: BLOCKED_ANSWER, isGrounded: false });
+    expect(BLOCKED_ANSWER).toBe("I can't help with that request.");
+    expect(callsTo(rpc, 'refund_message')[0]?.[1]).toEqual({ p_owner_id: 'owner-1', p_month: '2026-09-01' });
+  });
+
+  it('should throw PROVIDER_UNAVAILABLE and not embed when the reserve rpc fails', async () => {
+    const { admin } = fakeAdmin({ reserveError: true });
+    await expect(answerQuestion(admin, ownerFree, 'q')).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE', status: 503 });
+    expect(embedQuery).not.toHaveBeenCalled();
+  });
+
+  it('should pass the same deadline-bearing second argument to generateAnswer, about 25 s ahead', async () => {
+    const { admin } = fakeAdmin({ matches: [{ content: 'c' }] });
+    const before = Date.now();
+    await answerQuestion(admin, ownerFree, 'q');
+    const deadline = generateAnswer.mock.calls[0]?.[1] as number;
+    expect(deadline).toBeGreaterThanOrEqual(before + 25_000);
+    expect(deadline).toBeLessThanOrEqual(Date.now() + 25_000);
+  });
+
+  it('should build a per-request nonce into both the system instruction and the prompt', async () => {
+    const { admin } = fakeAdmin({ matches: [{ content: 'c' }] });
+    await answerQuestion(admin, ownerFree, 'q');
+    await answerQuestion(admin, ownerFree, 'q');
+    const calls = generateAnswer.mock.calls.map((call) => call[0] as { systemInstruction: string; prompt: string });
+    const nonces = calls.map((input) => /<document-([0-9a-f]{8})>/.exec(input.systemInstruction)?.[1]);
+    expect(nonces[0]).toBeDefined();
+    expect(nonces[0]).not.toBe(nonces[1]);
+    calls.forEach((input, index) => expect(input.prompt).toContain(`<document-${nonces[index]} index="1">`));
+  });
+
+  it('should rethrow the original error even when the refund itself fails', async () => {
+    generateAnswer.mockRejectedValue(new AppError('PROVIDER_UNAVAILABLE', 'try later'));
+    const { admin, rpc } = fakeAdmin({ matches: [{ content: 'c' }], refundFails: true });
+    await expect(answerQuestion(admin, ownerFree, 'q')).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE', message: 'try later' });
+    expect(callsTo(rpc, 'refund_message')).toHaveLength(1);
+  });
+
   it('should refund and return the not-found answer without generating when nothing matches', async () => {
     const { admin, rpc } = fakeAdmin({ matches: [] });
     const result = await answerQuestion(admin, ownerFree, 'q');
     expect(result).toMatchObject({ answer: NOT_FOUND_ANSWER, isGrounded: false });
     expect(generateAnswer).not.toHaveBeenCalled();
     expect(callsTo(rpc, 'refund_message')).toHaveLength(1);
+    expect(callsTo(rpc, 'refund_message')[0]?.[1]).toEqual({ p_owner_id: 'owner-1', p_month: '2026-10-01' });
   });
 
   it('should return the generated answer with the chunk text in the prompt and no refund when chunks match', async () => {
@@ -101,7 +151,7 @@ describe('answerQuestion', () => {
   });
 
   it('should keep the count and mark the answer ungrounded when the model replies with the not-found sentence', async () => {
-    generateAnswer.mockResolvedValue(NOT_FOUND_ANSWER);
+    generateAnswer.mockResolvedValue({ kind: 'answer', text: NOT_FOUND_ANSWER, finishReason: 'STOP' });
     const { admin, rpc } = fakeAdmin({ matches: [{ content: 'c' }] });
     const result = await answerQuestion(admin, ownerFree, 'q');
     expect(result).toMatchObject({ answer: NOT_FOUND_ANSWER, isGrounded: false });
