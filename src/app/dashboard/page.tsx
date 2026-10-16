@@ -12,8 +12,10 @@ async function getAppOrigin(): Promise<string> {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '');
   const requestHeaders = await headers();
-  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host') ?? 'localhost:3000';
-  const protocol = requestHeaders.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  // Proxies may append values ("a.com, b.com"); the first one is the original.
+  const first = (name: string): string | undefined => requestHeaders.get(name)?.split(',')[0]?.trim() || undefined;
+  const host = first('x-forwarded-host') ?? first('host') ?? 'localhost:3000';
+  const protocol = first('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
   return `${protocol}://${host}`;
 }
 

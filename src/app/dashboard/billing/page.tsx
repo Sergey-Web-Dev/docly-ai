@@ -9,6 +9,7 @@ export default async function BillingPage(): Promise<React.ReactElement> {
   const { user, supabase } = await requireUser();
   const summary = await getBillingSummary(supabase, user.id);
   const excess = summary.documents.used - summary.documents.limit;
+  const messagesOver = summary.messages.used > summary.messages.limit;
 
   return (
     <div className="space-y-6">
@@ -40,7 +41,12 @@ export default async function BillingPage(): Promise<React.ReactElement> {
           </dl>
           {summary.isOverDocumentLimit ? (
             <p role="status" data-testid="billing-over-limit" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              You have {summary.documents.used} documents; the {summary.plan.name} plan allows {summary.documents.limit}. Existing documents keep working, but new uploads are blocked until you delete {excess}.
+              You have {summary.documents.used} {summary.documents.used === 1 ? 'document' : 'documents'}; the {summary.plan.name} plan allows {summary.documents.limit}. Existing documents keep working, but new uploads are blocked until you delete {excess} {excess === 1 ? 'document' : 'documents'}.
+            </p>
+          ) : null}
+          {messagesOver ? (
+            <p role="status" data-testid="billing-messages-over" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              You have used {summary.messages.used} messages this month; the {summary.plan.name} plan includes {summary.messages.limit}. New messages are blocked until next month or until you upgrade.
             </p>
           ) : null}
         </CardContent>
