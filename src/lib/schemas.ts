@@ -47,8 +47,8 @@ export function parseBotSettings(formData: FormData): BotSettingsResult {
 }
 
 export const chatRequestSchema = z.object({
-  botId: z.uuid(),
-  message: z.string().trim().min(1, 'Type a question first.').max(MAX_MESSAGE_CHARS, 'Questions can be up to 1000 characters.'),
+  botId: z.uuid('Invalid request.'),
+  message: z.string('Type a question first.').trim().min(1, 'Type a question first.').max(MAX_MESSAGE_CHARS, 'Questions can be up to 1000 characters.'),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
