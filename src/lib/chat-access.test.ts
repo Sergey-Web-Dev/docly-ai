@@ -20,7 +20,7 @@ vi.mock('@/lib/chatbots', () => ({
 
 import { resolveChatAccess } from '@/lib/chat-access';
 import { PLANS } from '@/lib/plans';
-import { PUBLIC_RATE_LIMIT } from '@/lib/rag-config';
+import { PUBLIC_BOT_RATE_LIMIT, PUBLIC_RATE_LIMIT, PUBLIC_RATE_LIMIT_HOURLY } from '@/lib/rag-config';
 
 const headers = new Headers({ 'x-real-ip': '203.0.113.9' });
 const publishedBot = { id: 'bot-1', owner_id: 'owner-1', is_published: true };
@@ -28,6 +28,7 @@ const publishedBot = { id: 'bot-1', owner_id: 'owner-1', is_published: true };
 describe('resolveChatAccess', () => {
   beforeEach(() => {
     vi.stubEnv('RATE_LIMIT_SALT', 'test-salt');
+    vi.stubEnv('VERCEL', '');
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     getUser.mockReset().mockResolvedValue({ data: { user: { id: 'user-1' } } });
     getChatbotById.mockReset().mockResolvedValue({ id: 'bot-1', owner_id: 'user-1', is_published: false });
@@ -101,18 +102,44 @@ describe('resolveChatAccess', () => {
       await expect(resolveChatAccess('bot-1', headers)).rejects.toBeDefined();
     });
 
-    it('should call hit_rate_limit with a hashed key and the public limits', async () => {
+    it('should check the minute, hour and bot limits with the right keys and windows', async () => {
       await resolveChatAccess('bot-1', headers);
-      expect(rpc).toHaveBeenCalledWith('hit_rate_limit', {
+      expect(rpc).toHaveBeenCalledTimes(3);
+      expect(rpc).toHaveBeenNthCalledWith(1, 'hit_rate_limit', {
         p_key: expect.stringMatching(/^chat:bot-1:[0-9a-f]{32}$/) as unknown,
         p_window_seconds: PUBLIC_RATE_LIMIT.windowSeconds,
         p_max: PUBLIC_RATE_LIMIT.max,
       });
+      expect(rpc).toHaveBeenNthCalledWith(2, 'hit_rate_limit', {
+        p_key: expect.stringMatching(/^chat:bot-1:[0-9a-f]{32}:h$/) as unknown,
+        p_window_seconds: PUBLIC_RATE_LIMIT_HOURLY.windowSeconds,
+        p_max: PUBLIC_RATE_LIMIT_HOURLY.max,
+      });
+      expect(rpc).toHaveBeenNthCalledWith(3, 'hit_rate_limit', {
+        p_key: 'chat:bot-1',
+        p_window_seconds: PUBLIC_BOT_RATE_LIMIT.windowSeconds,
+        p_max: PUBLIC_BOT_RATE_LIMIT.max,
+      });
     });
 
-    it('should throw RATE_LIMITED when the limiter denies the call', async () => {
-      rpc.mockResolvedValue({ data: false, error: null });
+    it.each([1, 2, 3])('should throw RATE_LIMITED when limit check %i denies the call', async (denied) => {
+      let call = 0;
+      rpc.mockImplementation(() => Promise.resolve({ data: ++call !== denied, error: null }));
       await expect(resolveChatAccess('bot-1', headers)).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429 });
+      expect(getOwnPlan).not.toHaveBeenCalled();
+    });
+
+    it('should not consume the bot budget when the visitor is already limited', async () => {
+      rpc.mockResolvedValue({ data: false, error: null });
+      await expect(resolveChatAccess('bot-1', headers)).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+      expect(rpc).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw PROVIDER_UNAVAILABLE and log when RATE_LIMIT_SALT is missing', async () => {
+      vi.stubEnv('RATE_LIMIT_SALT', '');
+      await expect(resolveChatAccess('bot-1', headers)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE', status: 503 });
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('RATE_LIMIT_SALT'), expect.anything());
+      expect(rpc).not.toHaveBeenCalled();
     });
 
     it('should throw PROVIDER_UNAVAILABLE when the limiter RPC fails', async () => {
@@ -120,10 +147,10 @@ describe('resolveChatAccess', () => {
       await expect(resolveChatAccess('bot-1', headers)).rejects.toMatchObject({ code: 'PROVIDER_UNAVAILABLE', status: 503 });
     });
 
-    it('should propagate a failed owner plan read instead of defaulting to Free', async () => {
+    it('should read the owner plan only after the rate limits pass, and propagate its failure', async () => {
       getOwnPlan.mockRejectedValue(new Error('profiles down'));
       await expect(resolveChatAccess('bot-1', headers)).rejects.toThrow('profiles down');
-      expect(rpc).not.toHaveBeenCalled();
+      expect(rpc).toHaveBeenCalledTimes(3);
     });
   });
 });

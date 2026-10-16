@@ -1,9 +1,9 @@
 import 'server-only';
 import type { ChatTarget } from '@/lib/chat';
 import { getChatbotById, getOwnPlan } from '@/lib/chatbots';
-import { rateLimitKey } from '@/lib/client-key';
+import { ipHash } from '@/lib/client-key';
 import { AppError } from '@/lib/errors';
-import { PUBLIC_RATE_LIMIT } from '@/lib/rag-config';
+import { PUBLIC_BOT_RATE_LIMIT, PUBLIC_RATE_LIMIT, PUBLIC_RATE_LIMIT_HOURLY } from '@/lib/rag-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -32,18 +32,33 @@ async function resolvePublicAccess(botId: string, headers: Headers): Promise<Cha
   }
   if (!bot?.is_published) throw new AppError('BOT_UNAVAILABLE', 'This assistant is unavailable.');
 
-  const plan = await getOwnPlan(admin, bot.owner_id);
-
-  const { data: isAllowed, error: limitError } = await admin.rpc('hit_rate_limit', {
-    p_key: rateLimitKey(headers, bot.id),
-    p_window_seconds: PUBLIC_RATE_LIMIT.windowSeconds,
-    p_max: PUBLIC_RATE_LIMIT.max,
-  });
-  if (limitError) {
-    console.error('[chat-access] rate limit check failed', { botId, code: limitError.code });
+  // Rate limits run before the plan lookup so a flood never reaches the profiles table.
+  let visitorKey: string;
+  try {
+    visitorKey = `chat:${bot.id}:${ipHash(headers)}`;
+  } catch (cause) {
+    console.error('[chat-access] cannot build the rate limit key (is RATE_LIMIT_SALT set?)', { botId, cause: cause instanceof Error ? cause.message : 'unknown' });
     throw new AppError('PROVIDER_UNAVAILABLE', 'The assistant is temporarily unavailable. Please try again.');
   }
-  if (!isAllowed) throw new AppError('RATE_LIMITED', 'Too many messages. Please wait a minute and try again.');
+  const limits = [
+    { key: visitorKey, ...PUBLIC_RATE_LIMIT },
+    { key: `${visitorKey}:h`, ...PUBLIC_RATE_LIMIT_HOURLY },
+    { key: `chat:${bot.id}`, ...PUBLIC_BOT_RATE_LIMIT },
+  ];
+  // Sequential on purpose: a visitor already blocked per minute or hour must not also consume the shared bot budget.
+  for (const limit of limits) {
+    const { data: isAllowed, error: limitError } = await admin.rpc('hit_rate_limit', {
+      p_key: limit.key,
+      p_window_seconds: limit.windowSeconds,
+      p_max: limit.max,
+    });
+    if (limitError) {
+      console.error('[chat-access] rate limit check failed', { botId, code: limitError.code });
+      throw new AppError('PROVIDER_UNAVAILABLE', 'The assistant is temporarily unavailable. Please try again.');
+    }
+    if (!isAllowed) throw new AppError('RATE_LIMITED', 'Too many messages. Please wait a minute and try again.');
+  }
 
+  const plan = await getOwnPlan(admin, bot.owner_id);
   return { chatbotId: bot.id, ownerId: bot.owner_id, plan, mode: 'public' };
 }
