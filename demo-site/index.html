@@ -163,7 +163,7 @@
       script.setAttribute('data-bot-id', bot);
       document.body.appendChild(script);
 
-      snippet.textContent = '<script src="' + origin + '/widget.js" data-bot-id="' + bot + '" async></script>';
+      snippet.textContent = '<script src="' + origin + '/widget.js" data-bot-id="' + bot + '" async><\/script>';
       status.textContent = 'Widget loaded from ' + origin + '. Click the launcher in the bottom-right corner.';
     })();
   </script>
