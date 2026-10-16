@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { EmbedChat } from './embed-chat';
+import { EmbedClose } from './embed-close';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,10 @@ export const metadata: Metadata = {
 
 function Unavailable(): React.ReactElement {
   return (
-    <main className="flex h-dvh items-center justify-center bg-background p-6">
+    <main className="relative flex h-dvh items-center justify-center bg-background p-6">
+      <div className="absolute right-3 top-3">
+        <EmbedClose />
+      </div>
       <div role="status" className="max-w-xs space-y-1 rounded-xl border bg-card p-6 text-center">
         <h1 className="text-base font-semibold">This assistant is unavailable</h1>
         <p className="text-sm text-muted-foreground">Please check back later.</p>
