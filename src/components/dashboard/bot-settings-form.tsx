@@ -20,7 +20,7 @@ export function BotSettingsForm({ name, welcomeMessage }: BotSettingsFormProps):
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bot settings</CardTitle>
+        <CardTitle as="h2">Bot settings</CardTitle>
         <CardDescription>How your assistant introduces itself to visitors.</CardDescription>
       </CardHeader>
       <form action={formAction}>

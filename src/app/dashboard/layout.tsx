@@ -24,7 +24,10 @@ export default async function DashboardLayout({ children }: { readonly children:
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-8">
+        <h1 className="sr-only">Dashboard</h1>
+        {children}
+      </main>
     </div>
   );
 }

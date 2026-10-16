@@ -23,6 +23,8 @@ interface DocumentsPanelProps {
 type Stage = 'idle' | 'uploading' | 'processing';
 
 const STAGE_TEXT: Readonly<Record<Stage, string>> = { idle: '', uploading: 'Uploading…', processing: 'Processing…' };
+const PROCESSING_TIMEOUT_MS = 10 * 60 * 1000;
+const TIMEOUT_MESSAGE = 'Processing timed out. Please delete the file and upload it again.';
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
 
 export function DocumentsPanel({ documents, planName, planLimit }: DocumentsPanelProps): React.ReactElement {
@@ -106,7 +108,7 @@ export function DocumentsPanel({ documents, planName, planLimit }: DocumentsPane
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Documents</CardTitle>
+        <CardTitle as="h2">Documents</CardTitle>
         <CardDescription data-testid="documents-usage">{documents.length} / {planLimit} documents · {planName} plan</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -138,25 +140,34 @@ export function DocumentsPanel({ documents, planName, planLimit }: DocumentsPane
           </div>
         ) : (
           <ul className="divide-y rounded-lg border" aria-label="Uploaded documents">
-            {documents.map((document) => (
+            {documents.map((document) => {
+              const timedOut = isTimedOut(document);
+              const failureMessage = timedOut ? TIMEOUT_MESSAGE : document.status === 'failed' ? document.error_message : null;
+              return (
               <li key={document.id} className="flex flex-wrap items-start justify-between gap-3 p-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="break-all font-medium">{document.file_name}</span>
-                    <DocumentStatusBadge status={document.status} />
+                    <DocumentStatusBadge status={timedOut ? 'failed' : document.status} />
                   </div>
-                  {document.status === 'failed' && document.error_message ? <p className="text-sm text-destructive">{document.error_message}</p> : null}
+                  {failureMessage ? <p className="text-sm text-destructive">{failureMessage}</p> : null}
                 </div>
                 <Button type="button" variant="outline" size="sm" disabled={busy} aria-label={`Delete ${document.file_name}`} onClick={() => void handleDelete(document)}>
                   {deletingId === document.id ? 'Deleting…' : 'Delete'}
                 </Button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </CardContent>
     </Card>
   );
+}
+
+function isTimedOut(document: Tables<'documents'>): boolean {
+  if (document.status !== 'processing') return false;
+  return Date.now() - new Date(document.ingest_started_at ?? document.created_at).getTime() > PROCESSING_TIMEOUT_MS;
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
