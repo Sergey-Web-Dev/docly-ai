@@ -20,3 +20,5 @@ export const RETRY_BACKOFF_MS = 1_500;
 export const MIN_RETRY_ATTEMPT_MS = 6_000;
 // Thinking config is intentionally omitted (lite models may not support it), so leave headroom for hidden thinking tokens.
 export const MAX_OUTPUT_TOKENS = 1024;
+// Visitors of the public widget: per hashed IP and bot.
+export const PUBLIC_RATE_LIMIT = { windowSeconds: 60, max: 10 } as const;
