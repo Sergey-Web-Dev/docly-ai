@@ -13,7 +13,8 @@ export const MAX_MESSAGE_CHARS = 1000;
 // Chat time budget: the route has maxDuration = 30 s, so the whole pipeline gets 25 s.
 export const CHAT_DEADLINE_MS = 25_000;
 export const QUERY_EMBED_TIMEOUT_MS = 5_000;
-export const GENERATION_TIMEOUT_MS = 12_000;
+// Gemini Flash-Lite answers in ~5 s but has latency spikes; the request deadline (25 s) still caps it.
+export const GENERATION_TIMEOUT_MS = 20_000;
 export const RETRY_BACKOFF_MS = 1_500;
 // A retry is only worth starting when the backoff plus this much time is still left.
 export const MIN_RETRY_ATTEMPT_MS = 6_000;

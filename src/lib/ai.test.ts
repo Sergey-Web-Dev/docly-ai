@@ -11,6 +11,7 @@ vi.mock('@google/genai', () => ({
 }));
 
 import { embedQuery, embedTexts, generateAnswer } from '@/lib/ai';
+import { GENERATION_TIMEOUT_MS } from '@/lib/rag-config';
 
 const PROVIDER_ERROR = 'The AI service is unavailable right now. Please try again in a minute.';
 
@@ -132,12 +133,12 @@ describe('generateAnswer', () => {
     expect(call.config.abortSignal).toBeInstanceOf(AbortSignal);
   });
 
-  it('should cap the attempt timeout at 12 s and at the time left before the deadline', async () => {
+  it('should cap the attempt timeout at GENERATION_TIMEOUT_MS and at the time left before the deadline', async () => {
     const spy = vi.spyOn(AbortSignal, 'timeout');
     generateContent.mockResolvedValue(reply('ok'));
     await generateAnswer(input, deadline());
     await generateAnswer(input, Date.now() + 3_000);
-    expect(spy.mock.calls.map((call) => call[0])).toEqual([12_000, 3_000]);
+    expect(spy.mock.calls.map((call) => call[0])).toEqual([GENERATION_TIMEOUT_MS, 3_000]);
     spy.mockRestore();
   });
 

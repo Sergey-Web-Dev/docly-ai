@@ -95,6 +95,8 @@ export async function generateAnswer(input: GenerateInput, deadline: number): Pr
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) throw new AppError('PROVIDER_UNAVAILABLE', PROVIDER_ERROR);
+    const timeoutMs = Math.min(GENERATION_TIMEOUT_MS, remaining);
+    const startedAt = Date.now();
     let response: GenerateContentResponse;
     try {
       response = await getClient().models.generateContent({
@@ -104,7 +106,7 @@ export async function generateAnswer(input: GenerateInput, deadline: number): Pr
           systemInstruction: input.systemInstruction,
           temperature: 0.2,
           maxOutputTokens: MAX_OUTPUT_TOKENS,
-          abortSignal: AbortSignal.timeout(Math.min(GENERATION_TIMEOUT_MS, remaining)),
+          abortSignal: AbortSignal.timeout(timeoutMs),
         },
       });
     } catch (error) {
@@ -112,7 +114,7 @@ export async function generateAnswer(input: GenerateInput, deadline: number): Pr
         await sleep(RETRY_BACKOFF_MS);
         continue;
       }
-      console.error('[ai] generateContent failed', { attempt, status: statusOf(error), name: error instanceof Error ? error.name : 'unknown' });
+      console.error('[ai] generateContent failed', { attempt, status: statusOf(error), name: error instanceof Error ? error.name : 'unknown', elapsedMs: Date.now() - startedAt, timeoutMs });
       throw new AppError('PROVIDER_UNAVAILABLE', PROVIDER_ERROR);
     }
     return interpret(response);
