@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_MESSAGE_CHARS } from '@/lib/rag-config';
 
 const credentialsSchema = z.object({
   email: z.email('Enter a valid email address.'),
@@ -44,3 +45,10 @@ export function parseBotSettings(formData: FormData): BotSettingsResult {
   }
   return { ok: true, ...parsed.data };
 }
+
+export const chatRequestSchema = z.object({
+  botId: z.uuid(),
+  message: z.string().trim().min(1, 'Type a question first.').max(MAX_MESSAGE_CHARS, 'Questions can be up to 1000 characters.'),
+});
+
+export type ChatRequest = z.infer<typeof chatRequestSchema>;
