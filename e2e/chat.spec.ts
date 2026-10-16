@@ -85,5 +85,5 @@ test('owner chats with grounded answers, gets not-found, and hits the message qu
   await setMonthlyUsage(email, 30);
   await ask(page, 'How many vacation days do new hires get?');
   await expect(page.getByText("You've used all 30 messages this month on the Free plan.")).toBeVisible({ timeout: ANSWER_TIMEOUT });
-  await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/#pricing');
+  await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/dashboard/billing');
 });

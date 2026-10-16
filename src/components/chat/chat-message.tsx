@@ -39,7 +39,7 @@ export function ChatMessage({ message, mode, onRetry, retryDisabled }: ChatMessa
               <Button type="button" size="sm" variant="outline" onClick={onRetry} disabled={retryDisabled}>Try again</Button>
             ) : null}
             {message.upgrade && mode === 'owner' ? (
-              <Link href="/#pricing" className={buttonVariants({ size: 'sm' })}>Upgrade to Pro</Link>
+              <Link href="/dashboard/billing" className={buttonVariants({ size: 'sm' })}>Upgrade to Pro</Link>
             ) : null}
           </div>
         ) : null}
