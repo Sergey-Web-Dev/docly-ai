@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/database.types';
-import { getOwnChatbot, getOwnPlan, listDocuments } from '@/lib/chatbots';
+import { getOwnChatbot, getOwnPlan } from '@/lib/chatbots';
 import type { Plan, PlanId } from '@/lib/plans';
 import { getMonthlyUsage } from '@/lib/usage';
 
@@ -17,13 +17,19 @@ export interface BillingSummary {
   readonly isOverDocumentLimit: boolean;
 }
 
+async function countDocuments(supabase: SupabaseClient<Database>, chatbotId: string): Promise<number> {
+  const { count, error } = await supabase.from('documents').select('id', { count: 'exact', head: true }).eq('chatbot_id', chatbotId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function getBillingSummary(supabase: SupabaseClient<Database>, userId: string): Promise<BillingSummary> {
   const [plan, chatbot, messagesUsed] = await Promise.all([
     getOwnPlan(supabase, userId),
     getOwnChatbot(supabase, userId),
     getMonthlyUsage(supabase, userId),
   ]);
-  const documentsUsed = chatbot ? (await listDocuments(supabase, chatbot.id)).length : 0;
+  const documentsUsed = chatbot ? await countDocuments(supabase, chatbot.id) : 0;
   return {
     plan,
     documents: { used: documentsUsed, limit: plan.documents },

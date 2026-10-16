@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getOwnChatbot = vi.fn();
-const listDocuments = vi.fn();
+const documentCount = vi.fn();
 const getOwnPlan = vi.fn();
 const getMonthlyUsage = vi.fn();
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/chatbots', () => ({
   getOwnChatbot: (...args: unknown[]) => getOwnChatbot(...args) as unknown,
-  listDocuments: (...args: unknown[]) => listDocuments(...args) as unknown,
   getOwnPlan: (...args: unknown[]) => getOwnPlan(...args) as unknown,
 }));
 vi.mock('@/lib/usage', () => ({ getMonthlyUsage: (...args: unknown[]) => getMonthlyUsage(...args) as unknown }));
@@ -16,12 +15,18 @@ vi.mock('@/lib/usage', () => ({ getMonthlyUsage: (...args: unknown[]) => getMont
 import { changePlan, getBillingSummary } from '@/lib/billing';
 import { PLANS } from '@/lib/plans';
 
-const supabase = { tag: 'user' } as never;
+const select = vi.fn();
+const eq = vi.fn();
+const from = vi.fn();
+const supabase = { from: (...args: unknown[]) => from(...args) as unknown } as never;
 
 describe('getBillingSummary', () => {
   beforeEach(() => {
     getOwnChatbot.mockReset().mockResolvedValue({ id: 'bot-1' });
-    listDocuments.mockReset().mockResolvedValue([{}, {}]);
+    documentCount.mockReset().mockResolvedValue({ count: 2, error: null });
+    eq.mockReset().mockImplementation(() => documentCount() as unknown);
+    select.mockReset().mockReturnValue({ eq });
+    from.mockReset().mockReturnValue({ select });
     getOwnPlan.mockReset().mockResolvedValue(PLANS.free);
     getMonthlyUsage.mockReset().mockResolvedValue(7);
   });
@@ -36,14 +41,26 @@ describe('getBillingSummary', () => {
   });
 
   it('should flag isOverDocumentLimit when a downgraded user keeps more documents than the plan allows', async () => {
-    listDocuments.mockResolvedValue([{}, {}, {}]);
+    documentCount.mockResolvedValue({ count: 3, error: null });
     await expect(getBillingSummary(supabase, 'u1')).resolves.toMatchObject({ documents: { used: 3, limit: 2 }, isOverDocumentLimit: true });
   });
 
   it('should report zero documents when the user has no bot yet', async () => {
     getOwnChatbot.mockResolvedValue(null);
     await expect(getBillingSummary(supabase, 'u1')).resolves.toMatchObject({ documents: { used: 0, limit: 2 }, isOverDocumentLimit: false });
-    expect(listDocuments).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('should count documents with a head request instead of loading rows', async () => {
+    await getBillingSummary(supabase, 'u1');
+    expect(from).toHaveBeenCalledWith('documents');
+    expect(select).toHaveBeenCalledWith('id', { count: 'exact', head: true });
+    expect(eq).toHaveBeenCalledWith('chatbot_id', 'bot-1');
+  });
+
+  it('should throw when the document count fails', async () => {
+    documentCount.mockResolvedValue({ count: null, error: { code: 'XX000' } });
+    await expect(getBillingSummary(supabase, 'u1')).rejects.toBeDefined();
   });
 
   it('should use Pro limits for a Pro plan', async () => {
