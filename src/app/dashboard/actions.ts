@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/auth/require-user';
 import { getOwnChatbot, getOwnPlan } from '@/lib/chatbots';
 import { validateFile } from '@/lib/ingest/validate-file';
+import { MAX_FILE_BYTES } from '@/lib/rag-config';
 import { parseBotSettings } from '@/lib/schemas';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -24,6 +25,16 @@ export interface DeleteDocumentResult {
 }
 
 const UNIQUE_VIOLATION = '23505';
+const QUOTA_EXCEEDED = 'DQ001';
+const DUPLICATE = 'DQ002';
+const NOT_FOUND = 'P0002';
+const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f]/g;
+
+const uploadInputSchema = z.object({
+  fileName: z.string().max(1000).transform((name) => name.replace(CONTROL_CHARS, '')).pipe(z.string().trim().min(1).max(255)),
+  size: z.number().int().positive().max(MAX_FILE_BYTES),
+  type: z.string().max(100),
+});
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
 
 export async function createBot(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -48,7 +59,7 @@ export async function updateBot(_prev: ActionState, formData: FormData): Promise
 
   const { data, error } = await supabase
     .from('chatbots')
-    .update({ name: input.name, welcome_message: input.welcomeMessage, updated_at: new Date().toISOString() })
+    .update({ name: input.name, welcome_message: input.welcomeMessage })
     .eq('owner_id', user.id)
     .select('id');
   if (error) {
@@ -63,7 +74,11 @@ export async function updateBot(_prev: ActionState, formData: FormData): Promise
 export async function startDocumentUpload(input: { fileName: string; size: number; type: string }): Promise<StartUploadResult> {
   const { user, supabase } = await requireUser();
 
-  const validation = validateFile({ name: input.fileName, type: input.type, size: input.size });
+  const parsed = uploadInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Invalid file.' };
+  const { fileName, size, type } = parsed.data;
+
+  const validation = validateFile({ name: fileName, type, size });
   if (!validation.ok) return { ok: false, error: validation.error };
 
   const chatbot = await getOwnChatbot(supabase, user.id);
@@ -72,17 +87,18 @@ export async function startDocumentUpload(input: { fileName: string; size: numbe
   const plan = await getOwnPlan(supabase, user.id);
   const { data, error } = await createAdminClient().rpc('create_document', {
     p_chatbot_id: chatbot.id,
-    p_file_name: input.fileName,
-    p_size_bytes: input.size,
+    p_file_name: fileName,
+    p_size_bytes: size,
     p_max_documents: plan.documents,
   });
   if (error) {
-    if (error.message.includes('QUOTA_EXCEEDED')) {
+    if (error.code === QUOTA_EXCEEDED) {
       return { ok: false, error: `Your ${plan.name} plan allows ${plan.documents} documents. Delete one or upgrade to Pro.`, upgrade: plan.id === 'free' };
     }
-    if (error.message.includes('DUPLICATE')) {
+    if (error.code === DUPLICATE) {
       return { ok: false, error: 'A document with this name already exists. Delete it first or rename the file.' };
     }
+    if (error.code === NOT_FOUND) return { ok: false, error: 'Create your bot first.' };
     console.error('[documents] create_document failed', { code: error.code });
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -95,19 +111,19 @@ export async function deleteDocument(documentId: string): Promise<DeleteDocument
   const { supabase } = await requireUser();
   if (!z.uuid().safeParse(documentId).success) return { ok: false, error: 'Invalid document.' };
 
-  // User client: RLS returns the row only when the caller owns its chatbot.
-  const { data: document } = await supabase.from('documents').select('id, storage_path').eq('id', documentId).maybeSingle();
-  if (!document) return { ok: false, error: 'Document not found.' };
-
-  const { error: storageError } = await supabase.storage.from('documents').remove([document.storage_path]);
-  if (storageError) {
-    console.error('[documents] storage remove failed', { documentId });
-    return { ok: false, error: GENERIC_ERROR };
-  }
-  const { error } = await supabase.from('documents').delete().eq('id', documentId);
+  // Delete the row first (RLS limits it to the caller's own documents; chunks cascade).
+  const { data: deleted, error } = await supabase.from('documents').delete().eq('id', documentId).select('id, storage_path');
   if (error) {
     console.error('[documents] delete failed', { documentId, code: error.code });
     return { ok: false, error: GENERIC_ERROR };
+  }
+  const document = deleted[0];
+  if (!document) return { ok: false, error: 'Document not found.' };
+
+  // Best effort: the row is gone, so a leftover object is only orphaned storage.
+  const { data: removed, error: storageError } = await supabase.storage.from('documents').remove([document.storage_path]);
+  if (storageError || removed?.length !== 1) {
+    console.error('[documents] storage remove failed', { documentId, code: storageError?.name ?? 'NOT_REMOVED' });
   }
   revalidatePath('/dashboard');
   return { ok: true };
