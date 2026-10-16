@@ -28,13 +28,20 @@ export function EmbedPanel({ botId, isPublished, appOrigin }: EmbedPanelProps): 
   }, []);
 
   function toggle(next: boolean): void {
+    const previous = published;
     setError(null);
+    setPublishedState(next);
     startTransition(async () => {
       try {
         const result = await setPublished(next);
-        if (result.ok) setPublishedState(result.isPublished);
-        else setError(result.error);
+        if (result.ok) {
+          setPublishedState(result.isPublished);
+        } else {
+          setPublishedState(previous);
+          setError(result.error);
+        }
       } catch {
+        setPublishedState(previous);
         setError('Something went wrong. Please try again.');
       }
     });
