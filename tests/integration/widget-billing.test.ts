@@ -72,10 +72,11 @@ describe('hit_rate_limit', () => {
     const key = newKey();
     const results = await Promise.all([
       admin.rpc('hit_rate_limit', { p_key: key, p_window_seconds: -1, p_max: 3 }),
+      admin.rpc('hit_rate_limit', { p_key: key, p_window_seconds: 0, p_max: 3 }),
       admin.rpc('hit_rate_limit', { p_key: key, p_window_seconds: 60, p_max: 0 }),
       admin.rpc('hit_rate_limit', { p_key: 'x'.repeat(201), p_window_seconds: 60, p_max: 3 }),
     ]);
-    expect(results.map((result) => result.error?.code)).toEqual([INVALID_ARGUMENT, INVALID_ARGUMENT, INVALID_ARGUMENT]);
+    expect(results.map((result) => result.error?.code)).toEqual([INVALID_ARGUMENT, INVALID_ARGUMENT, INVALID_ARGUMENT, INVALID_ARGUMENT]);
   });
 
   it('should hand out exactly the max when calls race', async () => {
