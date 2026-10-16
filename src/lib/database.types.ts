@@ -164,6 +164,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_document: {
+        Args: { p_chunks: Json; p_document_id: string; p_size_bytes: number }
+        Returns: undefined
+      }
       create_document: {
         Args: {
           p_chatbot_id: string
