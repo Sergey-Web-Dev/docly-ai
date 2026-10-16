@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MAX_MESSAGE_CHARS } from '@/lib/rag-config';
+import { cn } from '@/lib/utils';
 import { ChatMessage, type ChatMessageData } from './chat-message';
 
 export interface ChatWindowProps {
@@ -13,6 +14,7 @@ export interface ChatWindowProps {
   readonly welcomeMessage: string;
   readonly mode: 'owner' | 'public';
   readonly initialUsage?: { readonly used: number; readonly limit: number };
+  readonly className?: string;
 }
 
 interface ApiError {
@@ -27,7 +29,7 @@ interface ApiAnswer {
 
 const FALLBACK_ERROR = 'Something went wrong. Please try again.';
 
-export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage }: ChatWindowProps): React.ReactElement {
+export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage, className }: ChatWindowProps): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessageData[]>([{ id: 'welcome', role: 'assistant', content: welcomeMessage }]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
@@ -109,7 +111,7 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage 
   const canSend = !pending && input.trim().length > 0 && !tooLong;
 
   return (
-    <section aria-label={`Chat with ${botName}`} className="flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+    <section aria-label={`Chat with ${botName}`} className={cn('flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10', className)}>
       {mode === 'owner' && usage ? (
         <p data-testid="chat-usage" className="border-b px-4 py-2 text-xs text-muted-foreground">
           {usage.used} / {usage.limit} messages this month
