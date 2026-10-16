@@ -3,10 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth/require-user';
+import { changePlan } from '@/lib/billing';
 import { getOwnChatbot, getOwnPlan } from '@/lib/chatbots';
+import type { PlanId } from '@/lib/plans';
 import { validateFile } from '@/lib/ingest/validate-file';
 import { MAX_FILE_BYTES } from '@/lib/rag-config';
-import { parseBotSettings } from '@/lib/schemas';
+import { isPublishedSchema, parseBotSettings, planIdSchema } from '@/lib/schemas';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface ActionState {
@@ -18,6 +20,10 @@ export interface ActionState {
 export type StartUploadResult =
   | { readonly ok: true; readonly documentId: string; readonly storagePath: string }
   | { readonly ok: false; readonly error: string; readonly upgrade?: boolean };
+
+export type SetPublishedResult = { readonly ok: true; readonly isPublished: boolean } | { readonly ok: false; readonly error: string };
+
+export type SetPlanResult = { readonly ok: true; readonly plan: PlanId } | { readonly ok: false; readonly error: string };
 
 export interface DeleteDocumentResult {
   readonly ok: boolean;
@@ -69,6 +75,40 @@ export async function updateBot(_prev: ActionState, formData: FormData): Promise
   if (data.length === 0) return { error: 'Create your bot first.' };
   revalidatePath('/dashboard');
   return { error: null, notice: 'Saved' };
+}
+
+export async function setPublished(isPublished: boolean): Promise<SetPublishedResult> {
+  const { user, supabase } = await requireUser();
+  const parsed = isPublishedSchema.safeParse(isPublished);
+  if (!parsed.success) return { ok: false, error: 'Invalid request.' };
+
+  const { data, error } = await supabase
+    .from('chatbots')
+    .update({ is_published: parsed.data })
+    .eq('owner_id', user.id)
+    .select('id');
+  if (error) {
+    console.error('[bot] publish toggle failed', { code: error.code });
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if (data.length === 0) return { ok: false, error: 'Create your bot first.' };
+  revalidatePath('/dashboard');
+  return { ok: true, isPublished: parsed.data };
+}
+
+// Demo billing: no payment is collected. The plan is written with the admin client for the session user only.
+export async function setPlan(planId: PlanId): Promise<SetPlanResult> {
+  const { user } = await requireUser();
+  const parsed = planIdSchema.safeParse(planId);
+  if (!parsed.success) return { ok: false, error: 'Invalid plan.' };
+
+  try {
+    await changePlan(createAdminClient(), user.id, parsed.data);
+  } catch {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath('/dashboard', 'layout');
+  return { ok: true, plan: parsed.data };
 }
 
 export async function startDocumentUpload(input: { fileName: string; size: number; type: string }): Promise<StartUploadResult> {

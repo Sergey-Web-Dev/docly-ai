@@ -52,3 +52,7 @@ export const chatRequestSchema = z.object({
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
+
+export const isPublishedSchema = z.boolean();
+
+export const planIdSchema = z.enum(['free', 'pro']);
