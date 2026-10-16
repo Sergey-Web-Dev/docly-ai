@@ -7,7 +7,7 @@ export default defineConfig({
   test: {
     include: ['tests/integration/**/*.test.ts'],
     environment: 'node',
-    env: loadEnv('local', process.cwd(), ''),
+    env: loadEnv('test', process.cwd(), ''),
     testTimeout: 30_000,
     hookTimeout: 30_000,
     fileParallelism: false,

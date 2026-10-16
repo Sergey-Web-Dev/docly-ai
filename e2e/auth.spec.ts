@@ -28,6 +28,6 @@ test('wrong password shows an inline error and keeps the email', async ({ page }
   await page.getByLabel('Email').fill('nobody@example.com');
   await page.getByLabel('Password').fill('WrongPass123');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Invalid email or password.');
+  await expect(page.locator('form').getByRole('alert')).toHaveText('Invalid email or password.');
   await expect(page.getByLabel('Email')).toHaveValue('nobody@example.com');
 });
