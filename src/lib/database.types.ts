@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      chatbots: {
+        Row: {
+          accent_color: string | null
+          created_at: string
+          id: string
+          is_published: boolean
+          name: string
+          owner_id: string
+          updated_at: string
+          welcome_message: string
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          name: string
+          owner_id: string
+          updated_at?: string
+          welcome_message: string
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          name?: string
+          owner_id?: string
+          updated_at?: string
+          welcome_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbots_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          chatbot_id: string
+          chunk_index: number
+          content: string
+          document_id: string
+          embedding: string
+          id: number
+        }
+        Insert: {
+          chatbot_id: string
+          chunk_index: number
+          content: string
+          document_id: string
+          embedding: string
+          id?: never
+        }
+        Update: {
+          chatbot_id?: string
+          chunk_index?: number
+          content?: string
+          document_id?: string
+          embedding?: string
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          chatbot_id: string
+          created_at: string
+          error_message: string | null
+          file_name: string
+          id: string
+          ingest_started_at: string | null
+          size_bytes: number
+          status: string
+          storage_path: string
+        }
+        Insert: {
+          chatbot_id: string
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          id?: string
+          ingest_started_at?: string | null
+          size_bytes: number
+          status?: string
+          storage_path: string
+        }
+        Update: {
+          chatbot_id?: string
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          id?: string
+          ingest_started_at?: string | null
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -37,7 +164,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_document: {
+        Args: {
+          p_chatbot_id: string
+          p_file_name: string
+          p_max_documents: number
+          p_size_bytes: number
+        }
+        Returns: {
+          chatbot_id: string
+          created_at: string
+          error_message: string | null
+          file_name: string
+          id: string
+          ingest_started_at: string | null
+          size_bytes: number
+          status: string
+          storage_path: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "documents"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

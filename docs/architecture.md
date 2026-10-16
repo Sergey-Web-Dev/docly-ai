@@ -57,7 +57,7 @@ src/
 │   │   └── actions.ts                # Server Actions: createBot, updateBot, setPublished, deleteDocument, setPlan
 │   ├── embed/[botId]/page.tsx        # Public iframe chat
 │   └── api/
-│       ├── documents/route.ts        # Upload + ingestion (maxDuration = 60)
+│       ├── documents/[id]/ingest/route.ts  # Ingestion after direct-to-Storage upload (maxDuration = 60)
 │       └── chat/route.ts             # Chat for dashboard AND widget
 ├── components/                       # shadcn/ui + feature components (ChatWindow shared by playground and embed)
 ├── lib/
@@ -98,7 +98,7 @@ rate_limits (standalone)
 | `usage_counters` | `owner_id` (FK, cascade), `month` date, `message_count` int ≥ 0 | PK `(owner_id, month)` |
 | `rate_limits` | `key` text, `window_start` timestamptz, `count` int | PK `(key, window_start)`; key = hash(IP)+bot id, no raw IPs |
 
-Storage: bucket `documents` (private), path `{owner_id}/{document_id}.{pdf|txt}`.
+Storage: bucket `documents` (private, 5 MB, PDF/TXT MIME), path `{owner_id}/{document_id}`.
 
 ---
 
@@ -144,17 +144,17 @@ Limits are passed in from `lib/plans.ts`, so plan numbers exist in one place onl
 ### 5.1 Sign-up (Epic 01)
 Supabase `signUp` → trigger creates `profiles(plan='free')` → `proxy.ts` refreshes session (`getClaims()`) → `/dashboard` (server layout redirects to `/login` without a user).
 
-### 5.2 Upload & ingestion (Epic 02) — `POST /api/documents`
-1. `getUser()` → load own bot (user client) → `validateFile` (type, magic bytes, ≤ 5 MB).
-2. `create_document(... PLANS[plan].documents)` → row `processing` (quota + duplicate check, atomic).
-3. Upload to Storage.
-4. `extractText` → normalise → fail if < 50 chars ("empty or unreadable", e.g. scanned PDF) → cap 200,000 chars.
-5. `chunkText` → ~1,000 chars, 150 overlap (paragraph → sentence → word split).
-6. `embedTexts` in batches of 100 (`taskType: RETRIEVAL_DOCUMENT`, 768 dims).
-7. Insert chunks in one statement → status `ready`.
-8. Any error after step 2: delete its chunks + storage object, status `failed` with a friendly message. Failed rows count toward quota until deleted.
+### 5.2 Upload & ingestion (Epic 02)
+Vercel functions reject request bodies over 4.5 MB, but the SDD allows 5 MB files. So the browser uploads the file **directly to the private Storage bucket**, and the server validates it after downloading.
+1. Server Action `startDocumentUpload`: `requireUser` → validate name/type/size → `create_document(... PLANS[plan].documents)` (admin) creates a `processing` row with `storage_path = {owner_id}/{document_id}`. The quota and duplicate check is atomic.
+2. The browser uploads to that path with the user client. Storage RLS allows only the owner's folder; the bucket limits files to 5 MB and to PDF/TXT MIME types.
+3. `POST /api/documents/[id]/ingest`: the user client confirms ownership via RLS → the admin client claims the row (`ingest_started_at`, so it runs once) → downloads → `validateFile` (magic bytes) → `extractText` (unpdf / UTF-8) → normalise → fail if < 50 chars ("empty or unreadable") → cap at 150,000 chars.
+4. `chunkText`: ~1,000 chars with 150 overlap (paragraph → sentence → word), at most 200 chunks.
+5. `embedTexts` in batches of 100 (`taskType: RETRIEVAL_DOCUMENT`, 768 dims).
+6. Insert all chunks in one statement (admin) → status `ready`.
+7. Any error in step 3–6: delete the chunks and the storage object, set status `failed` with a friendly message. Failed rows count toward the quota until deleted.
 
-Synchronous on purpose: bounded input (5 MB / 200 chunks) fits the 60 s function limit; no queue needed.
+Synchronous on purpose: the input is bounded (5 MB / 200 chunks), so it fits the 60 s function limit and no queue is needed.
 
 ### 5.3 Chat (Epics 03 + 04) — `POST /api/chat { botId, message }`
 1. Zod: `botId` uuid, `message` 1–1,000 chars.
