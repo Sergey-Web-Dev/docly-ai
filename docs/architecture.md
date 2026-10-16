@@ -76,7 +76,7 @@ src/
 │   ├── schemas.ts                    # Zod schemas (bot form, chat request)
 │   └── errors.ts                     # AppError + toResponse()
 └── proxy.ts                          # Next.js 16 proxy: Supabase session refresh + /dashboard redirect
-public/widget.js                      # ~60 lines vanilla JS loader
+public/widget.js                      # ~5 KB vanilla JS loader (closed Shadow DOM, no dependencies)
 demo-site/index.html                  # Static page with the snippet
 supabase/migrations/                  # Schema, RLS, storage policies, SQL functions
 ```
@@ -181,7 +181,7 @@ The same function `answerQuestion()` serves both modes, so the playground and wi
 
 ### 5.4 Widget (Epic 04)
 - Snippet: `<script src="https://<app>/widget.js" data-bot-id="<uuid>" async></script>`.
-- `widget.js` reads `data-bot-id` from `document.currentScript`, takes the app origin from its `src`, adds a launcher button and an `<iframe src="<origin>/embed/<botId>">` created on first open (~380px panel, full screen on small viewports). Esc closes it; so does a `window.postMessage({ type: 'docly:close' })` from the embed page, accepted only when `event.origin` is the app origin.
+- `widget.js` reads `data-bot-id` from `document.currentScript`, takes the app origin from its `src` (or an optional validated `data-app-origin` for CDN/proxy hosting), mounts everything inside a closed Shadow DOM so host CSS can't break it, adds a launcher button and an `<iframe src="<origin>/embed/<botId>">` created on first open (~380px panel, full screen on small viewports). Esc closes it; so does a `window.postMessage({ type: 'docly:close' })` from the embed page, accepted only when `event.origin` is the app origin and `event.source` is the widget's iframe. On small viewports (≤ 480 px wide or ≤ 500 px tall) the panel is full screen, `aria-modal`, locks host scrolling and closes when focus leaves it.
 - `/embed/[botId]` is a dynamic server component. It loads only `name, welcome_message, is_published` with the admin client. Unknown or unpublished bot → "This assistant is unavailable". Otherwise it renders `ChatWindow mode="public"`, which posts to `/api/chat` on the same origin (so no CORS). Its close button posts `docly:close` to the parent window.
 - Headers (`next.config.ts`): `/embed/*` sends `Content-Security-Policy: frame-ancestors *`; every other route sends `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 - **Public access** (`resolvePublicAccess` in `lib/chat-access.ts`, used when the session user does not own the bot, including signed-out visitors): the admin client must find a published bot (else `BOT_UNAVAILABLE`), the owner's plan is read from `profiles` (a failed read throws, never defaulting to Free), (after the limits, so a flood never reaches `profiles`). Three limits run in order, and any denial is `RATE_LIMITED`: per visitor and bot per minute (`chat:<bot>:<ipHash>`, 60 s, 10, `PUBLIC_RATE_LIMIT`), per visitor and bot per hour (`chat:<bot>:<ipHash>:h`, 3600 s, 20, `PUBLIC_RATE_LIMIT_HOURLY`) and per bot across all visitors (`chat:<bot>`, 60 s, 30, `PUBLIC_BOT_RATE_LIMIT`). A failing RPC or a missing `RATE_LIMIT_SALT` is `PROVIDER_UNAVAILABLE` (logged).
