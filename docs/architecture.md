@@ -109,9 +109,10 @@ Two layers, both required:
 **1. RLS (database).** Enabled on every table.
 - `profiles`: select where `id = auth.uid()`.
 - `chatbots`: all operations where `owner_id = auth.uid()`.
-- `documents`, `document_chunks`: all operations where the parent chatbot's `owner_id = auth.uid()`.
+- `documents`: all operations where the parent chatbot's `owner_id = auth.uid()` (the client cannot insert; rows are created by `create_document`).
+- `document_chunks`: no client access at all; only the admin client reads and writes chunks.
 - `usage_counters`: select own rows only. `rate_limits`: no client access.
-- Storage: owner may read/write/delete objects whose first path segment = `auth.uid()`.
+- Storage: owner may read and delete objects whose first path segment = `auth.uid()`. Uploads are allowed only to a path reserved by `create_document` (a `processing`, unclaimed document of the caller).
 
 **2. Server checks.** Identity always from `supabase.auth.getUser()` on the server; never from request bodies.
 
@@ -119,7 +120,9 @@ Two layers, both required:
 
 | Operation | Client | Why |
 |---|---|---|
-| Dashboard reads/writes (bot, documents, upload, delete, publish) | **User client** (RLS applies) | A bug in app code still cannot cross tenants |
+| Dashboard reads/writes (bot, document list, upload, delete, publish) | **User client** (RLS applies) | A bug in app code still cannot cross tenants |
+| `create_document` (Server Action `startDocumentUpload`) | Admin client, **after** the ownership check (`getOwnChatbot`) | The function is service-role only so quota cannot be bypassed |
+| Ingestion (`complete_document`, chunks, storage download) | Admin client, after the user client confirmed ownership | `document_chunks` has no client access |
 | `setPlan` | Admin client, `WHERE id = <session user>` | Clients must not change their own plan |
 | `/api/chat`, `/embed/[botId]` | Admin client, **after** access check, every query filtered by that `chatbot_id` | Anonymous visitors have no session |
 
@@ -129,7 +132,8 @@ Two layers, both required:
 |---|---|
 | `reserve_message(owner_id, month, limit)` | Atomic `+1` only if `message_count < limit`; returns false when over quota |
 | `refund_message(owner_id, month)` | `-1` when generation failed or nothing was found → only successful answers count |
-| `create_document(chatbot_id, file_name, storage_path, size, limit)` | Locks the bot row, counts docs, inserts `processing` row or raises `QUOTA_EXCEEDED` |
+| `create_document(chatbot_id, file_name, size, limit)` | Locks the bot row, marks `processing` rows older than 10 min as `failed`, counts docs, inserts a `processing` row with `storage_path = {owner_id}/{document_id}`. Raises SQLSTATE `DQ001` (quota), `DQ002` (duplicate name), `P0002` (bot not found), `22023` (invalid limit) |
+| `complete_document(document_id, size_bytes, chunks jsonb)` | In one transaction inserts all chunks and sets the document `ready`; raises `DQ003` if it is not `processing` |
 | `match_chunks(chatbot_id, embedding, k, min_similarity)` | Cosine search **always** filtered by `chatbot_id` |
 | `hit_rate_limit(key, window_seconds, max)` | Fixed-window counter; deletes stale rows |
 
@@ -151,8 +155,8 @@ Vercel functions reject request bodies over 4.5 MB, but the SDD allows 5 MB file
 3. `POST /api/documents/[id]/ingest`: the user client confirms ownership via RLS → the admin client claims the row (`ingest_started_at`, so it runs once) → downloads → `validateFile` (magic bytes) → `extractText` (unpdf / UTF-8) → normalise → fail if < 50 chars ("empty or unreadable") → cap at 150,000 chars.
 4. `chunkText`: ~1,000 chars with 150 overlap (paragraph → sentence → word), at most 200 chunks.
 5. `embedTexts` in batches of 100 (`taskType: RETRIEVAL_DOCUMENT`, 768 dims).
-6. Insert all chunks in one statement (admin) → status `ready`.
-7. Any error in step 3–6: delete the chunks and the storage object, set status `failed` with a friendly message. Failed rows count toward the quota until deleted.
+6. `complete_document` (admin) inserts all chunks and sets status `ready` in one transaction.
+7. Any error in step 3–6: set status `failed` (only if still `processing`) with a friendly message, then delete the chunks and the storage object. Each cleanup step is logged and none can throw. Failed rows count toward the quota until deleted. A row stuck in `processing` for more than 10 minutes is shown as failed and released by the next `create_document`.
 
 Synchronous on purpose: the input is bounded (5 MB / 200 chunks), so it fits the 60 s function limit and no queue is needed.
 
@@ -184,6 +188,8 @@ The plan modal reads `PLANS` and current usage. The **"Demo upgrade — no payme
 The API returns `{ error: { code, message, upgrade? } }` with one of these codes:
 `VALIDATION` 400 · `UNAUTHORIZED` 401 · `NOT_FOUND` 404 · `BOT_UNAVAILABLE` 404 · `QUOTA_EXCEEDED` 402 (`upgrade: true` in owner mode) · `RATE_LIMITED` 429 · `PROVIDER_UNAVAILABLE` 503.
 The UI turns each code into a friendly message. The upgrade CTA appears only for owners.
+
+**Ingestion failures are not HTTP errors.** `POST /api/documents/[id]/ingest` returns `200` with `{ document: { id, status: 'failed', errorMessage } }` when processing fails after the row was claimed; the HTTP error codes above are for rejected requests (bad id, no session, not found, already claimed).
 
 ---
 
