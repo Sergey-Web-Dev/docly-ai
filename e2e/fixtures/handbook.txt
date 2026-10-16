@@ -1,0 +1,19 @@
+Acme Robotics Employee Handbook
+
+1. About the company
+Acme Robotics builds warehouse automation robots. Our headquarters and main office are located in Lisbon, Portugal. The company was founded by a small team of engineers who wanted to make logistics safer and faster for everyone working in a warehouse.
+
+2. Vacation policy
+New hires receive 20 vacation days per year, starting from their first day of employment. Vacation days accrue monthly, and up to five unused days can be carried over into the next calendar year. Requests should be submitted to your manager at least two weeks in advance for absences longer than three days.
+
+3. Remote work
+Employees may work remotely on Tuesdays and Thursdays. On Monday, Wednesday and Friday the team meets at the Lisbon office to collaborate in person. Remote work from another country requires written approval from People Operations.
+
+4. Equipment
+Every employee receives a laptop, a monitor and a headset. Equipment must be returned when the employment ends. Lost or damaged equipment should be reported to IT within one working day.
+
+5. Getting help
+For questions about benefits, payroll, equipment or any policy in this handbook, contact the support team at help@acme.test. We aim to reply within one business day.
+
+6. Code of conduct
+We treat colleagues, customers and partners with respect. Harassment and discrimination are not tolerated. Concerns can be raised confidentially with People Operations or through the anonymous ethics line.
