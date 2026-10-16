@@ -36,7 +36,7 @@ export function Hero(): React.ReactElement {
               <span className="mb-1 flex items-center gap-1 text-xs font-medium text-indigo-600">
                 <Sparkles className="size-3" /> Docly AI
               </span>
-              Answers come straight from your uploaded documents, with the source shown next to them.
+              New hires get 20 vacation days in their first year, per the employee handbook.
             </div>
           </div>
         </div>
