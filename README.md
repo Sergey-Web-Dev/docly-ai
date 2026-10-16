@@ -139,7 +139,7 @@ With the `app` and `bot` query parameters the page injects the widget script for
 1. **Supabase:** create the project, apply the migrations and turn Confirm email off (see above).
 2. **Vercel (app):** import the repository, keep the root directory, and set all variables from the table. `NEXT_PUBLIC_APP_URL` is the Vercel domain (`https://<app>.vercel.app`). Every push to `main` deploys.
 3. **Supabase Auth URL configuration:** set Site URL and the redirect URLs to the Vercel domain.
-4. **Vercel (demo site):** create a second project from the same repository with **Root Directory** `demo-site/` and no build command. It is static and lives on a different origin, which proves the widget works on third-party sites. GitHub Pages works too. Open `<DEMO_URL>/?app=<APP_URL>&bot=<BOT_ID>`, or edit the commented snippet in `demo-site/index.html`.
+4. **Vercel (demo site):** create a second project from the same repository with **Root Directory** `demo-site/` and no build command. It is static and lives on a different origin, which proves the widget works on third-party sites. GitHub Pages works too. Add `<APP_URL>` to `ALLOWED_APP_ORIGINS` in `demo-site/index.html`, then open `<DEMO_URL>/?app=<APP_URL>&bot=<BOT_ID>`, or edit the commented snippet in `demo-site/index.html`.
 5. Smoke test: sign up, create a bot, upload a file, ask, publish, chat from the demo site, upgrade.
 
 ## Limitations
