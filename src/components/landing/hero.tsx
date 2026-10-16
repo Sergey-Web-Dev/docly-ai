@@ -1,7 +1,7 @@
 import { ArrowRight, FileText, Sparkles } from 'lucide-react';
 import { CtaLink } from './cta-link';
 
-export function Hero() {
+export function Hero(): React.ReactElement {
   return (
     <section aria-labelledby="hero-heading" className="border-b border-zinc-200 bg-gradient-to-b from-white to-zinc-50">
       <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-2">

@@ -6,7 +6,7 @@ import { PricingCards } from '@/components/landing/pricing-cards';
 import { SiteFooter } from '@/components/landing/site-footer';
 import { SiteHeader } from '@/components/landing/site-header';
 
-export default function Home() {
+export default function Home(): React.ReactElement {
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-white text-zinc-900">
       <SiteHeader />

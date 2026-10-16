@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description: "Upload your company documents, ask questions in a chat, and embed the same assistant on your website.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: LayoutProps<"/">): React.ReactElement {
   return (
     <html
       lang="en"

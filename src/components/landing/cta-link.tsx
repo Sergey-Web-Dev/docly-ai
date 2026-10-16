@@ -16,7 +16,7 @@ const TONES: Record<CtaTone, string> = {
   ghost: 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
 };
 
-export function CtaLink({ tone = 'accent', large = false, className, ...props }: CtaLinkProps) {
+export function CtaLink({ tone = 'accent', large = false, className, ...props }: CtaLinkProps): React.ReactElement {
   const variant = tone === 'ghost' ? 'ghost' : tone === 'outline' ? 'outline' : 'default';
   return (
     <Link

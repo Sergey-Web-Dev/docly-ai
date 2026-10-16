@@ -7,7 +7,7 @@ const NAV_LINKS = [
   { href: '#pricing', label: 'Pricing' },
 ] as const;
 
-export function SiteHeader() {
+export function SiteHeader(): React.ReactElement {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">

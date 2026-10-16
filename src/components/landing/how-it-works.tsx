@@ -13,7 +13,7 @@ const STEPS: readonly Step[] = [
   { title: 'Embed', description: 'Paste one script tag to put the same assistant on your own website.', icon: Code2 },
 ];
 
-export function HowItWorks() {
+export function HowItWorks(): React.ReactElement {
   return (
     <section id="how-it-works" aria-labelledby="how-heading" className="scroll-mt-14 bg-white py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">

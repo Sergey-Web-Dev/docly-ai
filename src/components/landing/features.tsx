@@ -16,7 +16,7 @@ const FEATURES: readonly Feature[] = [
   { title: 'Private by default', description: 'Your documents belong to your account only. Nobody else can see or query them.', icon: Lock },
 ];
 
-export function Features() {
+export function Features(): React.ReactElement {
   return (
     <section aria-labelledby="features-heading" className="border-y border-zinc-200 bg-zinc-50 py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">

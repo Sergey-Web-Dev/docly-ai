@@ -11,6 +11,7 @@ interface PricingCardsProps {
 
 function planFeatures(plan: Plan): readonly string[] {
   return [
+    `${plan.bots} ${plan.bots === 1 ? 'bot' : 'bots'}`,
     `${plan.documents} documents`,
     `${plan.messagesPerMonth} messages / month`,
     plan.hasWidget ? 'Embeddable chat widget' : 'No embeddable widget',
@@ -26,7 +27,7 @@ function defaultAction(plan: Plan): ReactNode {
   );
 }
 
-export function PricingCards({ renderAction = defaultAction }: PricingCardsProps) {
+export function PricingCards({ renderAction = defaultAction }: PricingCardsProps): React.ReactElement {
   return (
     <ul className="grid gap-4 md:grid-cols-2">
       {Object.values(PLANS).map((plan) => (
