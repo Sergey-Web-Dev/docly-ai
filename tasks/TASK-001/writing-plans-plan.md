@@ -16,7 +16,7 @@
 
 | # | Plan | Epic | Status | Exit check |
 |---|---|---|---|---|
-| 01 | `writing-plans-plan-epic-01.md` | `docs/epics/epic-01-foundation.md` | ✅ Written | Sign up / in / out on deployed preview; landing pricing from `PLANS` |
+| 01 | `writing-plans-plan-epic-01.md` | `docs/epics/epic-01-foundation.md` | ✅ Implemented — keys-dependent tests + deploy pending | Sign up / in / out on deployed preview; landing pricing from `PLANS` |
 | 02 | `writing-plans-plan-epic-02.md` | `docs/epics/epic-02-chatbot-builder.md` | ⏳ After Epic 01 review | PDF/TXT → `Ready`, chunks scoped by `chatbot_id`; doc quota |
 | 03 | `writing-plans-plan-epic-03.md` | `docs/epics/epic-03-ai-chat.md` | ⏳ | Playground answers 3 known Qs, declines unrelated; message quota |
 | 04 | `writing-plans-plan-epic-04.md` | `docs/epics/epic-04-widget-billing.md` | ⏳ | Widget answers on another origin; demo upgrade changes limits; release |
