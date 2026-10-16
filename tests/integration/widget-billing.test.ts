@@ -79,6 +79,17 @@ describe('hit_rate_limit', () => {
     expect(results.map((result) => result.error?.code)).toEqual([INVALID_ARGUMENT, INVALID_ARGUMENT, INVALID_ARGUMENT, INVALID_ARGUMENT]);
   });
 
+  it('should reject windows longer than 3600 seconds with 22023 and accept exactly 3600', async () => {
+    const admin = adminClient();
+    const tooLong = await admin.rpc('hit_rate_limit', { p_key: newKey(), p_window_seconds: 3601, p_max: 3 });
+    const veryLong = await admin.rpc('hit_rate_limit', { p_key: newKey(), p_window_seconds: 86_400, p_max: 3 });
+    const exact = await admin.rpc('hit_rate_limit', { p_key: newKey(), p_window_seconds: 3600, p_max: 3 });
+    expect(tooLong.error?.code).toBe(INVALID_ARGUMENT);
+    expect(veryLong.error?.code).toBe(INVALID_ARGUMENT);
+    expect(exact.error).toBeNull();
+    expect(exact.data).toBe(true);
+  });
+
   it('should hand out exactly the max when calls race', async () => {
     const key = newKey();
     const results = await Promise.all(Array.from({ length: 6 }, () => hit(key, 4)));

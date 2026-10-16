@@ -13,6 +13,13 @@ export function adminClient(): SupabaseClient<Database> {
   });
 }
 
+// Signed-out visitor: the publishable key without a session.
+export function anonClient(): SupabaseClient<Database> {
+  return createClient<Database>(env('NEXT_PUBLIC_SUPABASE_URL'), env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export interface TestUser {
   readonly id: string;
   readonly client: SupabaseClient<Database>;
