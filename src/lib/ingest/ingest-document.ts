@@ -53,7 +53,7 @@ type FailureStep = 'set_failed' | 'delete_chunks' | 'remove_object';
 
 // Never throws: each step runs independently and reports its own failure.
 async function markFailed(admin: SupabaseClient<Database>, target: IngestTarget, errorMessage: string): Promise<void> {
-  const run = async (step: FailureStep, action: () => PromiseLike<{ error: { code?: string } | null }>): Promise<void> => {
+  const run = async (step: FailureStep, action: () => PromiseLike<{ error: object | null }>): Promise<void> => {
     try {
       const { error } = await action();
       if (error) console.error('[ingest] cleanup step failed', { documentId: target.id, step, code: errorCode(error) });
