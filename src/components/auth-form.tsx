@@ -13,14 +13,17 @@ interface AuthFormProps {
   readonly action: (prev: AuthFormState, formData: FormData) => Promise<AuthFormState>;
 }
 
+const ERROR_ID = 'auth-form-error';
+
 const COPY = {
   login: { title: 'Sign in', description: 'Welcome back to Docly AI.', submit: 'Sign in', switchText: 'No account?', switchHref: '/signup', switchLabel: 'Create one' },
   signup: { title: 'Create your account', description: 'Start free. No card required.', submit: 'Create account', switchText: 'Already have an account?', switchHref: '/login', switchLabel: 'Sign in' },
 } as const;
 
 export function AuthForm({ mode, action }: AuthFormProps): React.ReactElement {
-  const [state, formAction, isPending] = useActionState(action, { error: null, email: '' });
+  const [state, formAction, isPending] = useActionState(action, { error: null, notice: null, email: '' });
   const copy = COPY[mode];
+  const describedBy = state.error ? ERROR_ID : undefined;
 
   return (
     <Card className="w-full max-w-sm">
@@ -32,13 +35,14 @@ export function AuthForm({ mode, action }: AuthFormProps): React.ReactElement {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state.email} required />
+            <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state.email} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} required />
+            <Input id="password" name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
           </div>
-          {state.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
+          {state.error ? <p id={ERROR_ID} role="alert" className="text-sm text-destructive">{state.error}</p> : null}
+          {state.notice ? <p role="status" className="text-sm text-muted-foreground">{state.notice}</p> : null}
         </CardContent>
         <CardFooter className="mt-4 flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Please wait…' : copy.submit}</Button>
