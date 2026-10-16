@@ -204,10 +204,13 @@ export type Database = {
           similarity: number
         }[]
       }
-      refund_message: { Args: { p_owner_id: string }; Returns: undefined }
+      refund_message: {
+        Args: { p_month: string; p_owner_id: string }
+        Returns: undefined
+      }
       reserve_message: {
         Args: { p_limit: number; p_owner_id: string }
-        Returns: boolean
+        Returns: string | null
       }
       complete_document: {
         Args: { p_chunks: Json; p_document_id: string; p_size_bytes: number }

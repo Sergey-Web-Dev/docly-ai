@@ -27,15 +27,15 @@ describe('currentMonth', () => {
 });
 
 describe('reserveMessage', () => {
-  it('should call reserve_message with the owner and limit and return its result', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
-    await expect(reserveMessage({ rpc } as unknown as Client, 'owner-1', 30)).resolves.toBe(true);
+  it('should call reserve_message with the owner and limit and return the reserved month', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: '2026-10-01', error: null });
+    await expect(reserveMessage({ rpc } as unknown as Client, 'owner-1', 30)).resolves.toBe('2026-10-01');
     expect(rpc).toHaveBeenCalledWith('reserve_message', { p_owner_id: 'owner-1', p_limit: 30 });
   });
 
-  it('should return false when the quota is exhausted', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
-    await expect(reserveMessage({ rpc } as unknown as Client, 'o', 30)).resolves.toBe(false);
+  it('should return null when the quota is exhausted', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    await expect(reserveMessage({ rpc } as unknown as Client, 'o', 30)).resolves.toBeNull();
   });
 
   it('should throw when the rpc fails', async () => {
@@ -45,10 +45,16 @@ describe('reserveMessage', () => {
 });
 
 describe('refundMessage', () => {
+  it('should pass the reserved month to refund_message', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    await refundMessage({ rpc } as unknown as Client, 'owner-1', '2026-09-01');
+    expect(rpc).toHaveBeenCalledWith('refund_message', { p_owner_id: 'owner-1', p_month: '2026-09-01' });
+  });
+
   it('should log and not throw when the rpc fails', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { message: 'boom' } });
-    await expect(refundMessage({ rpc } as unknown as Client, 'o')).resolves.toBeUndefined();
+    await expect(refundMessage({ rpc } as unknown as Client, 'o', '2026-10-01')).resolves.toBeUndefined();
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
@@ -56,7 +62,7 @@ describe('refundMessage', () => {
   it('should log and not throw when the rpc rejects', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const rpc = vi.fn().mockRejectedValue(new Error('network'));
-    await expect(refundMessage({ rpc } as unknown as Client, 'o')).resolves.toBeUndefined();
+    await expect(refundMessage({ rpc } as unknown as Client, 'o', '2026-10-01')).resolves.toBeUndefined();
     spy.mockRestore();
   });
 });

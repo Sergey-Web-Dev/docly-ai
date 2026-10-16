@@ -37,8 +37,17 @@ async function addDocument(botId: string, status: 'ready' | 'processing' | 'fail
   return doc.data.id;
 }
 
+function currentMonth(): string {
+  return `${new Date().toISOString().slice(0, 7)}-01`;
+}
+
+function previousMonth(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
+}
+
 async function counter(ownerId: string): Promise<number | undefined> {
-  const { data } = await adminClient().from('usage_counters').select('message_count').eq('owner_id', ownerId).maybeSingle();
+  const { data } = await adminClient().from('usage_counters').select('message_count').eq('owner_id', ownerId).eq('month', currentMonth()).maybeSingle();
   return data?.message_count;
 }
 
@@ -58,7 +67,7 @@ describe('message quota functions', () => {
 
   it('should not allow an authenticated client to call reserve_message, refund_message or match_chunks', async () => {
     const reserve = await alice.client.rpc('reserve_message', { p_owner_id: alice.id, p_limit: 5 });
-    const refund = await alice.client.rpc('refund_message', { p_owner_id: alice.id });
+    const refund = await alice.client.rpc('refund_message', { p_owner_id: alice.id, p_month: currentMonth() });
     const match = await alice.client.rpc('match_chunks', {
       p_chatbot_id: crypto.randomUUID(),
       p_embedding: asParam(axisVector(0)),
@@ -74,11 +83,12 @@ describe('message quota functions', () => {
     const user = await createTestUser('limit');
     try {
       const admin = adminClient();
-      const reserve = async (): Promise<boolean | null> => (await admin.rpc('reserve_message', { p_owner_id: user.id, p_limit: 2 })).data;
-      expect([await reserve(), await reserve(), await reserve()]).toEqual([true, true, false]);
+      const reserve = async (): Promise<string | null> => (await admin.rpc('reserve_message', { p_owner_id: user.id, p_limit: 2 })).data;
+      const month = currentMonth();
+      expect([await reserve(), await reserve(), await reserve()]).toEqual([month, month, null]);
       expect(await counter(user.id)).toBe(2);
-      await admin.rpc('refund_message', { p_owner_id: user.id });
-      expect(await reserve()).toBe(true);
+      await admin.rpc('refund_message', { p_owner_id: user.id, p_month: month });
+      expect(await reserve()).toBe(month);
     } finally {
       await deleteTestUser(user);
     }
@@ -91,7 +101,7 @@ describe('message quota functions', () => {
         Array.from({ length: 5 }, () => adminClient().rpc('reserve_message', { p_owner_id: user.id, p_limit: 3 })),
       );
       expect(results.every((result) => result.error === null)).toBe(true);
-      expect(results.filter((result) => result.data === true)).toHaveLength(3);
+      expect(results.filter((result) => result.data !== null)).toHaveLength(3);
       expect(await counter(user.id)).toBe(3);
     } finally {
       await deleteTestUser(user);
@@ -103,13 +113,35 @@ describe('message quota functions', () => {
     try {
       const admin = adminClient();
       await admin.rpc('reserve_message', { p_owner_id: user.id, p_limit: 5 });
-      await admin.rpc('refund_message', { p_owner_id: user.id });
-      const extra = await admin.rpc('refund_message', { p_owner_id: user.id });
+      await admin.rpc('refund_message', { p_owner_id: user.id, p_month: currentMonth() });
+      const extra = await admin.rpc('refund_message', { p_owner_id: user.id, p_month: currentMonth() });
       expect(extra.error).toBeNull();
       expect(await counter(user.id)).toBe(0);
     } finally {
       await deleteTestUser(user);
     }
+  });
+
+  it('should return the reserved month and refund only the month it is given', async () => {
+    const user = await createTestUser('month');
+    try {
+      const admin = adminClient();
+      const previous = previousMonth();
+      const seeded = await admin.from('usage_counters').insert({ owner_id: user.id, month: previous, message_count: 4 });
+      expect(seeded.error).toBeNull();
+      const reserved = await admin.rpc('reserve_message', { p_owner_id: user.id, p_limit: 5 });
+      expect(reserved.data).toBe(currentMonth());
+      await admin.rpc('refund_message', { p_owner_id: user.id, p_month: previous });
+      const rows = await admin.from('usage_counters').select('month, message_count').eq('owner_id', user.id).order('month');
+      expect(rows.data).toEqual([{ month: previous, message_count: 3 }, { month: currentMonth(), message_count: 1 }]);
+    } finally {
+      await deleteTestUser(user);
+    }
+  });
+
+  it('should reject a usage counter whose month is not the first day of a month', async () => {
+    const { error } = await adminClient().from('usage_counters').insert({ owner_id: alice.id, month: '2026-01-15', message_count: 0 });
+    expect(error?.code).toBe('23514');
   });
 
   it('should reject a negative limit', async () => {
