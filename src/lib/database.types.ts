@@ -159,6 +159,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       usage_counters: {
         Row: {
           message_count: number
@@ -190,6 +208,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      hit_rate_limit: {
+        Args: { p_key: string; p_max: number; p_window_seconds: number }
+        Returns: boolean
+      }
       match_chunks: {
         Args: {
           p_chatbot_id: string
