@@ -18,7 +18,7 @@ const FEATURES: readonly Feature[] = [
 
 export function Features(): React.ReactElement {
   return (
-    <section aria-labelledby="features-heading" className="border-y border-zinc-200 bg-zinc-50 py-16 md:py-24">
+    <section aria-labelledby="features-heading" className="border-y border-zinc-200 bg-zinc-50/50 py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <h2 id="features-heading" className="text-3xl font-semibold tracking-tight text-zinc-950">
           Built to be trusted
