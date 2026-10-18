@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseBotSettings, parseCredentials } from '@/lib/schemas';
+import { chatRequestSchema, parseBotSettings, parseCredentials } from '@/lib/schemas';
 
 function form(email: string, password: string): FormData {
   const data = new FormData();
@@ -52,5 +52,35 @@ describe('parseBotSettings', () => {
 
   it('should accept boundary lengths when name is 60 and welcome is 300 characters', () => {
     expect(parseBotSettings(botForm('a'.repeat(60), 'b'.repeat(300)))).toMatchObject({ ok: true });
+  });
+});
+
+describe('chatRequestSchema', () => {
+  const botId = '0b5f2c9e-7a4d-4e1b-8c3a-1d2e3f4a5b6c';
+
+  it('should trim the message when input is valid', () => {
+    expect(chatRequestSchema.parse({ botId, message: '  hello ' })).toEqual({ botId, message: 'hello' });
+  });
+
+  it('should reject an empty message', () => {
+    const result = chatRequestSchema.safeParse({ botId, message: '' });
+    expect(result.success ? '' : result.error.issues[0]?.message).toBe('Type a question first.');
+  });
+
+  it('should reject a whitespace-only message', () => {
+    expect(chatRequestSchema.safeParse({ botId, message: '   \n ' }).success).toBe(false);
+  });
+
+  it('should reject a message longer than 1000 characters', () => {
+    const result = chatRequestSchema.safeParse({ botId, message: 'a'.repeat(1001) });
+    expect(result.success ? '' : result.error.issues[0]?.message).toBe('Questions can be up to 1000 characters.');
+  });
+
+  it('should accept a message of exactly 1000 characters', () => {
+    expect(chatRequestSchema.safeParse({ botId, message: 'a'.repeat(1000) }).success).toBe(true);
+  });
+
+  it('should reject a bot id that is not a uuid', () => {
+    expect(chatRequestSchema.safeParse({ botId: 'nope', message: 'hi' }).success).toBe(false);
   });
 });

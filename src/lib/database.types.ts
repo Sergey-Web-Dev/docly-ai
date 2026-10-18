@@ -159,11 +159,59 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_counters: {
+        Row: {
+          message_count: number
+          month: string
+          owner_id: string
+        }
+        Insert: {
+          message_count?: number
+          month: string
+          owner_id: string
+        }
+        Update: {
+          message_count?: number
+          month?: string
+          owner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_counters_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      match_chunks: {
+        Args: {
+          p_chatbot_id: string
+          p_embedding: string
+          p_match_count: number
+          p_min_similarity: number
+        }
+        Returns: {
+          content: string
+          document_id: string
+          id: number
+          similarity: number
+        }[]
+      }
+      refund_message: {
+        Args: { p_month: string; p_owner_id: string }
+        Returns: undefined
+      }
+      reserve_message: {
+        Args: { p_limit: number; p_owner_id: string }
+        Returns: string | null
+      }
       complete_document: {
         Args: { p_chunks: Json; p_document_id: string; p_size_bytes: number }
         Returns: undefined

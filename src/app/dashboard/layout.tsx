@@ -16,7 +16,10 @@ export default async function DashboardLayout({ children }: { readonly children:
     <div className="min-h-dvh bg-muted/30">
       <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-          <Link href="/dashboard" className="font-semibold">Docly AI</Link>
+          <nav aria-label="Main" className="flex items-center gap-4">
+            <Link href="/dashboard" className="font-semibold">Docly AI</Link>
+            <Link href="/dashboard/chat" className="text-sm text-muted-foreground hover:text-foreground">Chat</Link>
+          </nav>
           <div className="flex items-center gap-3">
             <Badge variant="secondary" data-testid="plan-badge">{plan.name} plan</Badge>
             <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
