@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampOffset, createRng, easeToward, generateStars, starCountForArea, wrapUnit } from './starfield';
+import { MAX_ALPHA, MAX_RADIUS, MIN_ALPHA, MIN_RADIUS, TONE_COUNT, clampOffset, createRng, easeToward, generateStars, starCountForArea, trailLength, wrapUnit } from './starfield';
 
 describe('createRng', () => {
   it('should return the same sequence when seeded identically', () => {
@@ -35,7 +35,11 @@ describe('generateStars', () => {
       expect(star.y).toBeLessThan(1);
       expect(star.z).toBeGreaterThanOrEqual(0.15);
       expect(star.z).toBeLessThanOrEqual(1);
-      expect(star.radius).toBeGreaterThan(0);
+      expect(star.radius).toBeGreaterThanOrEqual(MIN_RADIUS);
+      expect(star.radius).toBeLessThanOrEqual(MAX_RADIUS);
+      expect(star.alpha).toBeGreaterThanOrEqual(MIN_ALPHA);
+      expect(star.alpha).toBeLessThanOrEqual(MAX_ALPHA);
+      expect(star.tone).toBeLessThan(TONE_COUNT);
     }
   });
 
@@ -95,5 +99,34 @@ describe('wrapUnit', () => {
 
   it('should wrap negative values into [0, 1)', () => {
     expect(wrapUnit(-0.25)).toBeCloseTo(0.75);
+  });
+});
+
+describe('generateStars variety', () => {
+  const stars = generateStars(200, 5);
+
+  it('should include a few hero stars but not many', () => {
+    const heroes = stars.filter((star) => star.isHero).length;
+    expect(heroes).toBeGreaterThan(0);
+    expect(heroes).toBeLessThan(40);
+  });
+
+  it('should use every tint in the palette', () => {
+    expect(new Set(stars.map((star) => star.tone)).size).toBe(TONE_COUNT);
+  });
+});
+
+describe('trailLength', () => {
+  it('should be zero when the cursor is slow', () => {
+    expect(trailLength(0.3, 1)).toBe(0);
+  });
+
+  it('should grow with speed and be capped', () => {
+    expect(trailLength(1.5, 1)).toBeGreaterThan(0);
+    expect(trailLength(50, 1)).toBe(14);
+  });
+
+  it('should be shorter for far stars', () => {
+    expect(trailLength(5, 0.2)).toBeLessThan(trailLength(5, 1));
   });
 });

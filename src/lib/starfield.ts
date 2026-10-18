@@ -5,15 +5,27 @@ export interface Star {
   readonly y: number;
   /** Depth, 0.15 (far) to 1 (near). Nearer stars move more and look larger. */
   readonly z: number;
+  /** Radius in CSS px at DPR 1, 0.8 to 2.4. */
   readonly radius: number;
   readonly phase: number;
   /** Index into the colour palette. */
   readonly tone: number;
+  /** Base opacity, 0.35 to 0.85, before twinkle. */
+  readonly alpha: number;
+  /** A few brighter stars that also get a soft glow. */
+  readonly isHero: boolean;
 }
+
+export const MIN_RADIUS = 0.8;
+export const MAX_RADIUS = 2.4;
+export const MIN_ALPHA = 0.35;
+export const MAX_ALPHA = 0.85;
+const HERO_CHANCE = 0.07;
 
 export const MIN_STARS = 120;
 export const MAX_STARS = 220;
-export const TONE_COUNT = 3;
+/** indigo, indigo (deep), violet, violet (deep), slate. */
+export const TONE_COUNT = 5;
 const PIXELS_PER_STAR = 9000;
 
 /** mulberry32: small seeded PRNG so star layouts are reproducible in tests. */
@@ -33,14 +45,14 @@ export function generateStars(count: number, seed: number): readonly Star[] {
   const stars: Star[] = [];
   for (let i = 0; i < count; i += 1) {
     const z = 0.15 + rng() * 0.85;
-    stars.push({
-      x: rng(),
-      y: rng(),
-      z,
-      radius: 0.4 + z * 1.1 + rng() * 0.3,
-      phase: rng() * Math.PI * 2,
-      tone: Math.floor(rng() * TONE_COUNT),
-    });
+    const x = rng();
+    const y = rng();
+    const radius = Math.min(MAX_RADIUS, MIN_RADIUS + z * 1.2 + rng() * 0.4);
+    const phase = rng() * Math.PI * 2;
+    const tone = Math.floor(rng() * TONE_COUNT);
+    const alpha = MIN_ALPHA + rng() * (MAX_ALPHA - MIN_ALPHA);
+    const isHero = z > 0.6 && rng() < HERO_CHANCE * 2;
+    stars.push({ x, y, z, radius: isHero ? Math.max(radius, 1.8) : radius, phase, tone, alpha: isHero ? MAX_ALPHA : alpha, isHero });
   }
   return stars;
 }
@@ -61,4 +73,10 @@ export function easeToward(current: number, target: number, factor: number): num
 
 export function wrapUnit(value: number): number {
   return value - Math.floor(value);
+}
+
+/** Trail length in px for a given cursor speed (px per ms): none when slow, capped when fast. */
+export function trailLength(speedPxPerMs: number, depth: number, maxPx = 14): number {
+  const strength = Math.min(1, Math.max(0, (speedPxPerMs - 0.8) / 2));
+  return strength * maxPx * depth;
 }
