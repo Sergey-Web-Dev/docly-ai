@@ -190,8 +190,17 @@ The same function `answerQuestion()` serves both modes, so the playground and wi
 - The visitor's message counts against the owner's monthly quota. In public mode a quota error shows a neutral "temporarily unavailable" message with no upgrade CTA.
 - The owner turns publishing on and off with the `setPublished` Server Action, which updates `chatbots.is_published` through the user client (the owner holds the column grant; RLS scopes the row).
 
-### 5.5 Mock billing (Epic 04)
-`/dashboard/billing` is a page (not a modal). It shows usage from `getBillingSummary` (plan, documents `used/limit`, messages `used/limit`, `isOverDocumentLimit`) and the `PLANS` cards. The **"Demo upgrade — no payment"** button asks for an inline confirmation, then calls the `setPlan` Server Action, which validates the plan id and runs `billing.changePlan` (`update profiles set plan where id = <session user>`) with the admin client. A downgrade deletes nothing: `create_document` blocks uploads until the document count is below the Free limit, and `reserve_message` applies the Free limit right away. Nothing collects card data.
+### 5.5 Mock billing and demo checkout
+`/dashboard/billing` is a page (not a modal). It shows usage from `getBillingSummary` (plan, documents `used/limit`, messages `used/limit`, `isOverDocumentLimit`) and the `PLANS` cards. The Pro card links to `/dashboard/billing/checkout`; the Free card offers **"Cancel subscription (demo)"** with an inline confirmation, which calls the `setPlan` Server Action. `setPlan` accepts only `'free'` (zod `downgradePlanSchema`; `'pro'` is rejected with "Use checkout to upgrade.") and runs `billing.changePlan` with the admin client for the session user. A downgrade deletes nothing: `create_document` blocks uploads until the document count is below the Free limit, and `reserve_message` applies the Free limit right away.
+
+**Payment adapter.** `src/lib/payments/payment-provider.ts` defines `PaymentProvider.charge({ token, amountUsd, description, customerId })`, returning `{ ok, chargeId }` or a decline (`card_declined`, `insufficient_funds`, `invalid_token`). `mock-payment-provider.ts` accepts only the four Stripe test tokens, simulates about 1.2 s of processing (injectable delay) and returns `ch_demo_<random>`. `getPaymentProvider()` returns the mock; real Stripe would plug in there (`STRIPE_SECRET_KEY` and PaymentIntents) without touching the action.
+
+**Checkout flow.**
+1. The client form (`checkout-form.tsx`) reads the typed card and calls `tokenizeTestCard` (`demo-card.ts`, pure, browser-side). Only the four test numbers map to a token; anything else is rejected locally and nothing is sent. Fields are disabled until hydration, use `autocomplete="off"` and non-standard names, and are cleared after submit and on unmount.
+2. The client calls `completeDemoCheckout({ token, brand?, last4? })`. The number, expiry and CVC never reach the server (the input schema is strict, so extra keys are rejected).
+3. The action calls `requireUser()`, validates the token, returns "You're already on Pro." for Pro owners, charges `PLANS.pro.priceUsd` through the provider and, only on success, runs `changePlan(admin, user.id, 'pro')` and revalidates. A decline returns the provider message and leaves the plan unchanged. Logs carry the user id, token type and result only.
+
+This deliberately deviates from SDD section 4 ("no card details are collected"); it is safe because only test cards are accepted and card data stays in the browser.
 
 ---
 

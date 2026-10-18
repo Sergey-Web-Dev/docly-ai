@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TEST_TOKENS } from '@/lib/payments/payment-provider';
 import { MAX_MESSAGE_CHARS } from '@/lib/rag-config';
 
 const credentialsSchema = z.object({
@@ -55,4 +56,15 @@ export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 export const isPublishedSchema = z.boolean();
 
-export const planIdSchema = z.enum(['free', 'pro']);
+// Upgrading to Pro only happens through checkout; this path is the downgrade/cancel.
+export const downgradePlanSchema = z.literal('free', {
+  error: (issue) => (issue.input === 'pro' ? 'Use checkout to upgrade.' : 'Invalid plan.'),
+});
+
+// Strict on purpose: any extra key (for example a card number) makes the whole input invalid.
+export const checkoutInputSchema = z.strictObject({
+  token: z.enum(TEST_TOKENS),
+  idempotencyKey: z.uuid(),
+});
+
+export type CheckoutInput = z.infer<typeof checkoutInputSchema>;

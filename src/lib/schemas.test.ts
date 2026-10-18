@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, planIdSchema } from '@/lib/schemas';
+import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, downgradePlanSchema, checkoutInputSchema } from '@/lib/schemas';
 
 function form(email: string, password: string): FormData {
   const data = new FormData();
@@ -95,12 +95,38 @@ describe('isPublishedSchema', () => {
   });
 });
 
-describe('planIdSchema', () => {
-  it.each(['free', 'pro'])('should accept the plan id %s', (value) => {
-    expect(planIdSchema.parse(value)).toBe(value);
+describe('downgradePlanSchema', () => {
+  it('should accept free', () => {
+    expect(downgradePlanSchema.parse('free')).toBe('free');
   });
 
-  it.each(['enterprise', 'PRO', '', null, 1])('should reject the unknown plan %s', (value) => {
-    expect(planIdSchema.safeParse(value).success).toBe(false);
+  it('should point to checkout when pro is requested', () => {
+    const result = downgradePlanSchema.safeParse('pro');
+    expect(result.success ? null : result.error.issues[0]?.message).toBe('Use checkout to upgrade.');
+  });
+
+  it.each(['enterprise', '', null, 1])('should reject %s as an invalid plan', (value) => {
+    const result = downgradePlanSchema.safeParse(value);
+    expect(result.success ? null : result.error.issues[0]?.message).toBe('Invalid plan.');
+  });
+});
+
+const KEY = '3f2b8c1e-7a4d-4e6f-9b0a-1c2d3e4f5a6b';
+
+describe('checkoutInputSchema', () => {
+  it('should accept a known test token with an idempotency key', () => {
+    expect(checkoutInputSchema.parse({ token: 'tok_visa', idempotencyKey: KEY })).toEqual({ token: 'tok_visa', idempotencyKey: KEY });
+  });
+
+  it.each([
+    { token: 'tok_x', idempotencyKey: KEY },
+    { token: 'tok_visa' },
+    { token: 'tok_visa', idempotencyKey: 'not-a-uuid' },
+    { token: 'tok_visa', idempotencyKey: KEY, last4: '4242' },
+    { token: 'tok_visa', idempotencyKey: KEY, brand: 'visa' },
+    { token: 'tok_visa', idempotencyKey: KEY, number: '4242424242424242' },
+    null,
+  ])('should reject %j', (value) => {
+    expect(checkoutInputSchema.safeParse(value).success).toBe(false);
   });
 });

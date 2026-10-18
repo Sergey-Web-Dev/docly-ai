@@ -54,10 +54,22 @@ On the demo site, which is a different origin without any owner cookies, a float
 
 ![Plan and billing](walkthrough/08-billing.png)
 
-The Plan page shows usage and both plans. Billing is simulated: the upgrade button says "Demo upgrade, no payment" and no card details are collected.
+The Plan page shows usage and both plans. Billing is simulated: **Upgrade to Pro** opens a demo checkout and no money is charged.
 
-## 9. After the demo upgrade
+## 9. Demo checkout
 
-![After the demo upgrade](walkthrough/09-after-upgrade.png)
+![Demo checkout](walkthrough/09-checkout.png)
 
-After confirming, the badge reads Pro and the limits change right away (10 documents, 300 messages per month).
+A Stripe-style page with an order summary and a payment form. Only Stripe test cards are accepted (here `4242 4242 4242 4242`); the card number, expiry and CVC never leave the browser, only a test token is sent to the server.
+
+## 10. Payment successful
+
+![Payment successful](walkthrough/10-payment-success.png)
+
+The success panel shows a demo receipt id and the card's last four digits.
+
+## 11. After the demo upgrade
+
+![After the demo upgrade](walkthrough/11-after-upgrade.png)
+
+The badge reads Pro and the limits change right away (10 documents, 300 messages per month).

@@ -5,10 +5,12 @@ import { z } from 'zod';
 import { requireUser } from '@/lib/auth/require-user';
 import { changePlan } from '@/lib/billing';
 import { getOwnChatbot, getOwnPlan } from '@/lib/chatbots';
-import type { PlanId } from '@/lib/plans';
+import { getPaymentProvider } from '@/lib/payments/get-payment-provider';
+import { TEST_TOKEN_CARDS, type TestCardBrand } from '@/lib/payments/payment-provider';
+import { PLANS, type PlanId } from '@/lib/plans';
 import { validateFile } from '@/lib/ingest/validate-file';
 import { MAX_FILE_BYTES } from '@/lib/rag-config';
-import { isPublishedSchema, parseBotSettings, planIdSchema } from '@/lib/schemas';
+import { type CheckoutInput, checkoutInputSchema, downgradePlanSchema, isPublishedSchema, parseBotSettings } from '@/lib/schemas';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface ActionState {
@@ -24,6 +26,10 @@ export type StartUploadResult =
 export type SetPublishedResult = { readonly ok: true; readonly isPublished: boolean } | { readonly ok: false; readonly error: string };
 
 export type SetPlanResult = { readonly ok: true; readonly plan: PlanId } | { readonly ok: false; readonly error: string };
+
+export type CheckoutResult =
+  | { readonly ok: true; readonly chargeId: string; readonly brand: TestCardBrand; readonly last4: string }
+  | { readonly ok: false; readonly error: string };
 
 export interface DeleteDocumentResult {
   readonly ok: boolean;
@@ -96,11 +102,11 @@ export async function setPublished(isPublished: boolean): Promise<SetPublishedRe
   return { ok: true, isPublished: parsed.data };
 }
 
-// Demo billing: no payment is collected. The plan is written with the admin client for the session user only.
-export async function setPlan(planId: PlanId): Promise<SetPlanResult> {
+// Downgrade / cancel only. Upgrading to Pro goes through completeDemoCheckout; no client can set Pro directly.
+export async function setPlan(planId: 'free'): Promise<SetPlanResult> {
   const { user } = await requireUser();
-  const parsed = planIdSchema.safeParse(planId);
-  if (!parsed.success) return { ok: false, error: 'Invalid plan.' };
+  const parsed = downgradePlanSchema.safeParse(planId);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Invalid plan.' };
 
   try {
     await changePlan(createAdminClient(), user.id, parsed.data);
@@ -109,6 +115,45 @@ export async function setPlan(planId: PlanId): Promise<SetPlanResult> {
   }
   revalidatePath('/dashboard', 'layout');
   return { ok: true, plan: parsed.data };
+}
+
+// Users with a checkout running in this server process. A second concurrent call is refused before it can charge.
+// (In-memory is enough for a demo; a real deployment would claim the upgrade in the database instead.)
+const checkoutsInFlight = new Set<string>();
+const PLAN_UPDATE_FAILED = (chargeId: string): string => `Payment received but the plan update failed. Contact support with receipt ${chargeId}.`;
+
+// Demo checkout. The browser tokenizes a Stripe test card locally; only the token and a per-page idempotency key arrive
+// here. The card number, expiry and CVC never reach the server, and the brand/last4 shown on the receipt are derived
+// from the token. Logs carry the user id, token type and result only.
+export async function completeDemoCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+  const { user, supabase } = await requireUser();
+  const parsed = checkoutInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: 'Invalid payment details.' };
+  const { token, idempotencyKey } = parsed.data;
+
+  if (checkoutsInFlight.has(user.id)) return { ok: false, error: 'A payment is already being processed.' };
+  checkoutsInFlight.add(user.id);
+  try {
+    if ((await getOwnPlan(supabase, user.id)).id === 'pro') return { ok: false, error: "You're already on Pro." };
+
+    const charge = await getPaymentProvider().charge({ token, idempotencyKey, amountUsd: PLANS.pro.priceUsd, description: 'Docly AI Pro (demo)', customerId: user.id });
+    console.info('[checkout] charge', { userId: user.id, token, result: charge.ok ? 'succeeded' : charge.code });
+    if (!charge.ok) return { ok: false, error: charge.message };
+
+    try {
+      await changePlan(createAdminClient(), user.id, 'pro');
+    } catch (error) {
+      console.error('[checkout] charged but plan update failed', { userId: user.id, chargeId: charge.chargeId, name: error instanceof Error ? error.name : typeof error });
+      return { ok: false, error: PLAN_UPDATE_FAILED(charge.chargeId) };
+    }
+    revalidatePath('/dashboard', 'layout');
+    return { ok: true, chargeId: charge.chargeId, ...TEST_TOKEN_CARDS[token] };
+  } catch (error) {
+    console.error('[checkout] failed', { userId: user.id, token, name: error instanceof Error ? error.name : typeof error });
+    return { ok: false, error: GENERIC_ERROR };
+  } finally {
+    checkoutsInFlight.delete(user.id);
+  }
 }
 
 export async function startDocumentUpload(input: { fileName: string; size: number; type: string }): Promise<StartUploadResult> {

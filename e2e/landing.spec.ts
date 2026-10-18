@@ -24,3 +24,36 @@ test('landing has no horizontal scroll', async ({ page }) => {
   const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
   expect(hasOverflow).toBe(false);
 });
+
+test('landing renders the animated star field canvas', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByTestId('starfield')).toHaveCount(1);
+  await expect(page.getByTestId('starfield')).toHaveAttribute('aria-hidden', 'true');
+});
+
+test('chat preview animation starts typing the first question', async ({ page }) => {
+  await page.goto('/');
+  const preview = page.getByTestId('chat-preview');
+  await preview.scrollIntoViewIfNeeded();
+  // The static first exchange is shown first; once the clock starts the answer is cleared and typed again.
+  await expect(preview).not.toContainText('starting from day one', { timeout: 5_000 });
+  await expect(preview).toContainText('Searching employee-handbook.pdf', { timeout: 8_000 });
+});
+
+test.describe('reduced motion', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('chat preview shows the first exchange statically', async ({ page }) => {
+    await page.goto('/');
+    const preview = page.getByTestId('chat-preview');
+    await expect(preview).toContainText('How many vacation days do new hires get?');
+    await expect(preview).toContainText('New hires get 20 vacation days per year, starting from day one.');
+  });
+});
+
+// Rendering the embed page needs the full app env (Supabase secret): validated in the main checkout.
+test('embed page has no star field canvas', async ({ page }) => {
+  await page.goto('/embed/00000000-0000-4000-8000-000000000000');
+  await expect(page.locator('main')).toBeVisible();
+  await expect(page.getByTestId('starfield')).toHaveCount(0);
+});

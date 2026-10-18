@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { fillCard } from './helpers';
 
 // Generates docs/walkthrough/*.png for docs/walkthrough.md. Run with: WALKTHROUGH=1 npx playwright test e2e/walkthrough.spec.ts --project=desktop
 const OUT_DIR = path.join(__dirname, '..', 'docs', 'walkthrough');
@@ -101,13 +102,19 @@ test('record the illustrated walkthrough', async ({ page, browser }, testInfo) =
     await visitorContext.close();
   }
 
-  // 08 Billing, 09 after the demo upgrade
+  // 08 Billing, 09 checkout (card filled), 10 payment successful, 11 after the upgrade
   await page.goto('/dashboard/billing');
-  await expect(page.getByRole('button', { name: 'Demo upgrade — no payment' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toBeVisible();
   await shot(page, '08-billing');
-  await page.getByRole('button', { name: 'Demo upgrade — no payment' }).click();
-  await page.getByRole('button', { name: 'Confirm switch to Pro' }).click();
+  await page.getByRole('link', { name: 'Upgrade to Pro' }).click();
+  await expect(page.getByLabel('Card number')).toBeEnabled();
+  await fillCard(page, '4242 4242 4242 4242');
+  await shot(page, '09-checkout');
+  await page.getByRole('button', { name: 'Pay $19.00 — demo' }).click();
+  await expect(page.getByTestId('checkout-success')).toBeVisible({ timeout: 15_000 });
+  await shot(page, '10-payment-success');
+  await page.goto('/dashboard/billing');
   await expect(page.getByTestId('plan-badge')).toHaveText('Pro plan');
   await expect(page.getByTestId('billing-documents')).toHaveText('1 / 10');
-  await shot(page, '09-after-upgrade');
+  await shot(page, '11-after-upgrade');
 });

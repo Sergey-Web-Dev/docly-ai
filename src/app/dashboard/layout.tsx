@@ -13,8 +13,8 @@ export default async function DashboardLayout({ children }: { readonly children:
   const plan = getPlan(profile?.plan);
 
   return (
-    <div className="min-h-dvh bg-muted/30">
-      <header className="border-b bg-background">
+    <div className="min-h-dvh">
+      <header className="border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <nav aria-label="Main" className="flex items-center gap-4">
             <Link href="/dashboard" className="font-semibold">Docly AI</Link>
