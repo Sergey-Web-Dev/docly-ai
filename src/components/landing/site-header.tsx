@@ -9,10 +9,10 @@ const NAV_LINKS = [
 
 export function SiteHeader(): React.ReactElement {
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#05060f]/60 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 rounded-md font-semibold text-zinc-900 outline-none focus-visible:ring-3 focus-visible:ring-indigo-600/40">
-          <span className="flex size-7 items-center justify-center rounded-md bg-indigo-600 text-white" aria-hidden="true">
+        <Link href="/" className="flex items-center gap-2 rounded-md font-semibold text-white outline-none focus-visible:ring-3 focus-visible:ring-indigo-300/60">
+          <span className="flex size-7 items-center justify-center rounded-md bg-indigo-600 text-white shadow-[0_0_16px_-2px_rgba(99,102,241,0.8)]" aria-hidden="true">
             <FileText className="size-4" />
           </span>
           Docly AI

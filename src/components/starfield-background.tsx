@@ -2,10 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { SpaceBackdrop } from '@/components/space-backdrop';
+import { createSpaceScene, drawSpace, type SpaceScene } from '@/lib/space-draw';
 import { createFieldState, drawField, type FieldState } from '@/lib/starfield-draw';
 import { clampOffset, easeToward, generateStars, starCountForArea, type Star } from '@/lib/starfield';
 
 const STAR_SEED = 20260611;
+const SPACE_SEED = 20261018;
+const SPACE_PATHS: readonly string[] = ['/', '/login', '/signup'];
 const MAX_PARALLAX_PX = 28;
 const IDLE_MS = 2000;
 const MAX_DPR = 2;
@@ -16,8 +20,12 @@ const LOW_CORE_COUNT = 4;
 const CHECKOUT_PATH = '/dashboard/billing/checkout';
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
+type StarfieldVariant = 'light' | 'space';
+
 interface StarfieldCanvasProps {
+  readonly variant: StarfieldVariant;
   readonly density: number;
+  /** Only the light variant uses this; the space variant has its own per-star brightness. */
   readonly opacity: number;
   /** Draw one still frame and run no animation loop (checkout page). */
   readonly isPaused: boolean;
@@ -28,7 +36,7 @@ function isLowPowerDevice(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || LOW_CORE_COUNT + 1) <= LOW_CORE_COUNT;
 }
 
-function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): React.ReactElement {
+function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanvasProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -45,6 +53,8 @@ function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): 
     const run = (isStatic: boolean): (() => void) => {
       const state: FieldState = createFieldState();
       let stars: readonly Star[] = [];
+      let scene: SpaceScene | null = null;
+      let drawFrame: (time: number) => void = () => undefined;
       let frameId = 0;
       let lastTime = 0;
       let lastDrawn = 0;
@@ -59,8 +69,15 @@ function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): 
         canvas.width = Math.round(state.width * dpr);
         canvas.height = Math.round(state.height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        stars = generateStars(starCountForArea(state.width, state.height, effectiveDensity), STAR_SEED);
-        if (isStatic) drawField(ctx, stars, state, 0, opacity);
+        if (variant === 'space') {
+          const next = createSpaceScene(state.width, state.height, effectiveDensity, dpr, SPACE_SEED, scene);
+          scene = next;
+          drawFrame = (time) => drawSpace(ctx, next, state, time, !isStatic);
+        } else {
+          stars = generateStars(starCountForArea(state.width, state.height, effectiveDensity), STAR_SEED);
+          drawFrame = (time) => drawField(ctx, stars, state, time, opacity);
+        }
+        if (isStatic) drawFrame(0);
       };
       const handleResize = (): void => {
         window.clearTimeout(resizeTimer);
@@ -94,7 +111,7 @@ function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): 
         const decay = Math.exp(-dt / 120);
         state.velocityX *= decay;
         state.velocityY *= decay;
-        drawField(ctx, stars, state, time, opacity);
+        drawFrame(time);
       };
       const start = (): void => {
         if (frameId === 0) {
@@ -154,7 +171,7 @@ function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): 
       motionQuery.removeEventListener('change', handleMotionChange);
       teardown();
     };
-  }, [density, opacity, isPaused]);
+  }, [variant, density, opacity, isPaused]);
 
   return <canvas ref={canvasRef} aria-hidden="true" data-testid="starfield" className="pointer-events-none fixed inset-0 -z-10 h-full w-full" />;
 }
@@ -162,10 +179,22 @@ function StarfieldCanvas({ density, opacity, isPaused }: StarfieldCanvasProps): 
 /** Fixed full-viewport star field behind the whole app. Never rendered inside the embeddable widget. */
 export function StarfieldBackground(): React.ReactElement | null {
   const pathname = usePathname();
-  if (pathname.startsWith('/embed')) return null;
+  const isEmbed = pathname.startsWith('/embed');
+  const isSpace = SPACE_PATHS.includes(pathname);
+
+  if (isEmbed) return null;
+  if (isSpace) {
+    return (
+      <>
+        <SpaceBackdrop />
+        <StarfieldCanvas variant="space" density={1} opacity={1} isPaused={false} />
+      </>
+    );
+  }
   const isDashboard = pathname.startsWith('/dashboard');
   return (
     <StarfieldCanvas
+      variant="light"
       density={isDashboard ? DASHBOARD_DENSITY : 1}
       opacity={isDashboard ? DASHBOARD_OPACITY : 1}
       isPaused={pathname.startsWith(CHECKOUT_PATH)}

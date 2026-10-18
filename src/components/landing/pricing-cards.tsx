@@ -5,7 +5,11 @@ import { PLANS, type Plan } from '@/lib/plans';
 import { cn } from '@/lib/utils';
 import { CtaLink } from './cta-link';
 
+type PricingTone = 'light' | 'dark';
+
 interface PricingCardsProps {
+  /** `dark` for the space landing page; billing keeps the default light look. */
+  readonly tone?: PricingTone;
   readonly renderAction?: (plan: Plan) => ReactNode;
 }
 
@@ -27,31 +31,40 @@ function defaultAction(plan: Plan): ReactNode {
   );
 }
 
-export function PricingCards({ renderAction = defaultAction }: PricingCardsProps): React.ReactElement {
+export function PricingCards({ renderAction = defaultAction, tone = 'light' }: PricingCardsProps): React.ReactElement {
+  const isDark = tone === 'dark';
+  const isPro = (plan: Plan): boolean => plan.id === 'pro';
   return (
     <ul className="grid gap-4 md:grid-cols-2">
       {Object.values(PLANS).map((plan) => (
         <li key={plan.id}>
-          <Card className={cn('h-full border bg-white shadow-none ring-0', plan.id === 'pro' ? 'border-indigo-600' : 'border-zinc-200')}>
+          <Card
+            className={cn(
+              'h-full border shadow-none ring-0',
+              isDark
+                ? cn('text-zinc-100 backdrop-blur-xl', isPro(plan) ? 'border-indigo-400/60 bg-indigo-500/10 shadow-[0_0_48px_-14px_rgba(99,102,241,0.8)]' : 'border-white/10 bg-white/5')
+                : cn('bg-white', isPro(plan) ? 'border-indigo-600' : 'border-zinc-200'),
+            )}
+          >
             <CardHeader>
-              <CardTitle className="text-base text-zinc-950">{plan.name}</CardTitle>
-              <CardDescription className="text-zinc-600">
-                <span className="text-3xl font-semibold text-zinc-950">${plan.priceUsd}</span> / mo
+              <CardTitle className={cn('text-base', isDark ? 'text-white' : 'text-zinc-950')}>{plan.name}</CardTitle>
+              <CardDescription className={isDark ? 'text-zinc-400' : 'text-zinc-600'}>
+                <span className={cn('text-3xl font-semibold', isDark ? 'text-white' : 'text-zinc-950')}>${plan.priceUsd}</span> / mo
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-zinc-700">
+              <ul className={cn('space-y-2 text-sm', isDark ? 'text-zinc-300' : 'text-zinc-700')}>
                 {planFeatures(plan).map((feature) => (
                   <li key={feature} className="flex items-center gap-2">
-                    <Check className="size-4 shrink-0 text-indigo-600" aria-hidden="true" />
+                    <Check className={cn('size-4 shrink-0', isDark ? 'text-indigo-300' : 'text-indigo-600')} aria-hidden="true" />
                     {feature}
                   </li>
                 ))}
               </ul>
             </CardContent>
-            <CardFooter className="flex-col items-stretch gap-2">
+            <CardFooter className={cn('flex-col items-stretch gap-2', isDark && 'border-white/10 bg-transparent')}>
               {renderAction(plan)}
-              {plan.id === 'pro' && <p className="text-center text-xs text-zinc-500">Demo checkout — test cards only</p>}
+              {plan.id === 'pro' && <p className={cn('text-center text-xs', isDark ? 'text-zinc-400' : 'text-zinc-500')}>Demo checkout — test cards only</p>}
             </CardFooter>
           </Card>
         </li>

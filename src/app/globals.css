@@ -146,3 +146,93 @@
     animation: none;
   }
 }
+
+/* Dark space theme (landing + auth). Pure CSS keyed on the backdrop element, which is server-rendered on those
+   routes and unmounted on client navigation, so html/body are correct on first paint and after every route change. */
+html:has(.space-backdrop) {
+  background-color: #05060f;
+  color-scheme: dark;
+}
+
+/* html now paints the canvas colour, so the body must not paint white over the fixed space layers. */
+html:has(.space-backdrop) body {
+  background: transparent;
+}
+
+.space-backdrop {
+  background: linear-gradient(180deg, #05060f 0%, #080b1d 55%, #0b1026 100%);
+}
+
+.space-nebula {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(48px);
+  will-change: transform;
+}
+
+.space-nebula-indigo {
+  left: -12vw;
+  top: -14vh;
+  width: 62vw;
+  height: 62vw;
+  background: radial-gradient(closest-side, rgb(79 70 229 / 0.28), rgb(79 70 229 / 0.1) 55%, transparent);
+  animation: nebula-drift-a 70s ease-in-out infinite alternate;
+}
+
+.space-nebula-violet {
+  right: -16vw;
+  top: 8vh;
+  width: 58vw;
+  height: 50vw;
+  background: radial-gradient(closest-side, rgb(139 92 246 / 0.2), rgb(124 58 237 / 0.07) 60%, transparent);
+  animation: nebula-drift-b 90s ease-in-out infinite alternate;
+}
+
+.space-nebula-blue {
+  left: 18vw;
+  bottom: -30vh;
+  width: 80vw;
+  height: 58vw;
+  background: radial-gradient(closest-side, rgb(37 99 235 / 0.22), rgb(37 99 235 / 0.07) 60%, transparent);
+  animation: nebula-drift-c 80s ease-in-out infinite alternate;
+}
+
+/* Faint Milky-Way-ish haze, matching the dense star band in the canvas. */
+.space-nebula-band {
+  left: -20vw;
+  top: 38vh;
+  width: 140vw;
+  height: 22vh;
+  border-radius: 50%;
+  transform: rotate(-24deg);
+  filter: blur(40px);
+  background: radial-gradient(closest-side, rgb(170 185 255 / 0.1), rgb(150 160 255 / 0.04) 60%, transparent);
+}
+
+.space-vignette {
+  background: radial-gradient(ellipse at 50% 40%, transparent 55%, rgb(2 3 10 / 0.55) 100%);
+}
+
+@keyframes nebula-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(7vw, 6vh, 0) scale(1.12); }
+}
+@keyframes nebula-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.05); }
+  to { transform: translate3d(-8vw, 5vh, 0) scale(0.95); }
+}
+@keyframes nebula-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(0.95); }
+  to { transform: translate3d(-6vw, -6vh, 0) scale(1.1); }
+}
+
+@media (max-width: 640px) {
+  .space-nebula { filter: blur(32px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .space-nebula {
+    animation: none;
+    will-change: auto;
+  }
+}

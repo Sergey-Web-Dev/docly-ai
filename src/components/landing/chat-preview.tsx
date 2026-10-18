@@ -19,10 +19,10 @@ function Caret(): React.ReactElement {
 
 function ThinkingIndicator(): React.ReactElement {
   return (
-    <span className="flex items-center gap-2 text-xs text-zinc-500">
+    <span className="flex items-center gap-2 text-xs text-zinc-400">
       <span className="flex items-center gap-1">
         {DOT_DELAYS.map((delay) => (
-          <span key={delay} style={{ animationDelay: delay }} className="size-1.5 animate-bounce rounded-full bg-indigo-400" />
+          <span key={delay} style={{ animationDelay: delay }} className="size-1.5 animate-bounce rounded-full bg-indigo-300" />
         ))}
       </span>
       Searching employee-handbook.pdf…
@@ -49,9 +49,9 @@ export function ChatPreview(): React.ReactElement {
       <p className="sr-only">
         Example conversation. Question: {FIRST_SCENARIO.question} Answer: {FIRST_SCENARIO.answer}
       </p>
-      <div aria-hidden="true" data-testid="chat-preview" className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-2 border-b border-zinc-100 pb-3 text-xs text-zinc-500">
-          <FileText className="size-4 text-indigo-600" />
+      <div aria-hidden="true" data-testid="chat-preview" className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-[0_0_80px_-24px_rgba(99,102,241,0.6)] backdrop-blur-xl">
+        <div className="flex items-center gap-2 border-b border-white/10 pb-3 text-xs text-zinc-400">
+          <FileText className="size-4 text-indigo-300" />
           employee-handbook.pdf
         </div>
         <div className="h-52 space-y-3 sm:h-44 overflow-hidden pt-4 text-sm">
@@ -59,10 +59,10 @@ export function ChatPreview(): React.ReactElement {
             {frame.userText}
             {frame.phase === 'user-typing' ? <Caret /> : null}
           </div>
-          <div className={isAnswerVisible ? 'w-fit max-w-[85%] rounded-lg rounded-bl-sm bg-zinc-100 px-3 py-2 text-zinc-800' : 'invisible h-9'}>
+          <div className={isAnswerVisible ? 'w-fit max-w-[85%] rounded-lg rounded-bl-sm bg-white/10 px-3 py-2 text-zinc-100' : 'invisible h-9'}>
             {isAnswerVisible ? (
               <>
-                <span className="mb-1 flex items-center gap-1 text-xs font-medium text-indigo-600">
+                <span className="mb-1 flex items-center gap-1 text-xs font-medium text-indigo-300">
                   <Sparkles className="size-3" /> Docly AI
                 </span>
                 {frame.phase === 'thinking' ? <ThinkingIndicator /> : frame.answerText}
