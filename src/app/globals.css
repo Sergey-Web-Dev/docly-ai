@@ -147,14 +147,15 @@
   }
 }
 
-/* Dark space theme (landing + auth). Toggled by StarfieldBackground via html.space-mode. */
-html.space-mode {
+/* Dark space theme (landing + auth). Pure CSS keyed on the backdrop element, which is server-rendered on those
+   routes and unmounted on client navigation, so html/body are correct on first paint and after every route change. */
+html:has(.space-backdrop) {
   background-color: #05060f;
   color-scheme: dark;
 }
 
 /* html now paints the canvas colour, so the body must not paint white over the fixed space layers. */
-html.space-mode body {
+html:has(.space-backdrop) body {
   background: transparent;
 }
 
@@ -230,5 +231,8 @@ html.space-mode body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .space-nebula { animation: none; }
+  .space-nebula {
+    animation: none;
+    will-change: auto;
+  }
 }
