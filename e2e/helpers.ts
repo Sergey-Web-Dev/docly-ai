@@ -109,11 +109,33 @@ export async function expectLightTheme(page: Page): Promise<void> {
   expect(html[3] === 0 || luminanceOf(html) > 230).toBe(true);
 }
 
-export async function expectLightPricingCards(page: Page): Promise<void> {
+/** Dark-glass cards: translucent (the sky shows through) or dark, never an opaque light surface. */
+export async function expectDarkGlassPricingCards(page: Page): Promise<void> {
   const cards = page.locator('ul > li > [data-slot="card"]');
   await expect(cards).toHaveCount(2);
   for (const card of await cards.all()) {
     const pixel = await backgroundPixel(card);
-    expect(luminanceOf(pixel)).toBeGreaterThan(230);
+    expect(pixel[3] !== undefined && pixel[3] <= 128 ? true : luminanceOf(pixel) < 60, 'pricing card must not be an opaque light surface').toBe(true);
   }
+}
+
+export type SkyKind = 'space' | 'constellations' | 'galaxy';
+
+/**
+ * The three space formats: landing/auth sparkle sky (`space`), dashboard aurora + constellations (`constellations`)
+ * and chat/widget galaxy (`galaxy`). All of them paint html dark on the server-rendered page.
+ */
+export async function expectSky(page: Page, kind: SkyKind): Promise<void> {
+  await expectSpaceTheme(page);
+  await expect(page.getByTestId('space-backdrop')).toHaveAttribute('data-variant', kind === 'constellations' ? 'aurora' : kind);
+  await expect(page.getByTestId('starfield')).toHaveAttribute('data-variant', kind);
+}
+
+/** The text colour is light (readable on the dark sky). */
+export async function expectLightText(locator: Locator): Promise<void> {
+  const [r = 0, g = 0, b = 0] = await locator.evaluate((element) => {
+    const match = getComputedStyle(element).color.match(/[\d.]+/g) ?? [];
+    return match.slice(0, 3).map(Number);
+  });
+  expect(luminanceOf([r, g, b])).toBeGreaterThan(180);
 }

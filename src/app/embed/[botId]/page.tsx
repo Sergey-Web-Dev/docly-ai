@@ -13,13 +13,13 @@ export const metadata: Metadata = {
 
 function Unavailable(): React.ReactElement {
   return (
-    <main className="relative flex h-dvh items-center justify-center bg-background p-6">
+    <main className="space-ui relative flex h-dvh items-center justify-center p-6">
       <div className="absolute right-3 top-3">
         <EmbedClose />
       </div>
-      <div role="status" className="max-w-xs space-y-1 rounded-xl border bg-card p-6 text-center">
+      <div role="status" className="max-w-xs space-y-1 rounded-2xl border border-white/15 bg-white/5 p-6 text-center backdrop-blur-xl">
         <h1 className="text-base font-semibold">This assistant is unavailable</h1>
-        <p className="text-sm text-muted-foreground">Please check back later.</p>
+        <p className="text-sm text-zinc-300">Please check back later.</p>
       </div>
     </main>
   );

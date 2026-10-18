@@ -195,6 +195,10 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     const answer = (await assistant.last().innerText()).trim();
     console.log(`[widget-e2e] Q: How many vacation days do new hires get? -> A: ${answer}`);
     expect(answer).toContain('20');
+    // Public widget: never any file names or source chips, and the galaxy sky is behind the chat.
+    await expect(frame.getByTestId('chat-sources')).toHaveCount(0);
+    expect(await frame.locator('body').innerText()).not.toContain('handbook.txt');
+    await expect(frame.locator('[data-testid="starfield"]')).toHaveAttribute('data-variant', 'galaxy');
 
     await frame.getByRole('button', { name: 'Close chat' }).click();
     await expect(panel).toBeHidden();

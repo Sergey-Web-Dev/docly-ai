@@ -2,7 +2,7 @@
   'use strict';
   if (window.__doclyWidgetLoaded) return;
   var script = document.currentScript;
-  if (!script) { console.warn('[docly] document.currentScript is missing; load widget.js with a <script src> tag'); return; }
+  if (!script) { console.warn('[docly] load widget.js with a <script src> tag'); return; }
   var botId = script.getAttribute('data-bot-id') || '';
   if (!/^[0-9a-f-]{36}$/i.test(botId)) { console.warn('[docly] invalid data-bot-id'); return; }
   var origin;
@@ -10,7 +10,7 @@
     var u = new URL(script.getAttribute('data-app-origin') || script.src, location.href);
     if (!/^https?:$/.test(u.protocol)) throw 0;
     origin = u.origin;
-  } catch { console.warn('[docly] invalid src or data-app-origin'); return; }
+  } catch { console.warn('[docly] invalid origin'); return; }
   window.__doclyWidgetLoaded = true;
 
   var Z = 2147483000;
@@ -19,12 +19,12 @@
   var CLOSE_ICON = ICON('M18 6 6 18M6 6l12 12');
   var SMALL = '(max-width:480px),(max-height:500px)';
   var CSS = ':host{all:initial}' +
-    'button{all:unset;position:fixed;right:20px;bottom:20px;z-index:' + Z + ';width:56px;height:56px;border-radius:50%;background:#4f46e5;box-shadow:0 4px 14px #0004;cursor:pointer;display:flex;align-items:center;justify-content:center}' +
-    'button:focus-visible{outline:3px solid #4f46e5;outline-offset:3px}' +
-    '.p{display:none;position:fixed;z-index:' + Z + ';right:20px;bottom:88px;width:380px;height:600px;max-width:calc(100vw - 40px);max-height:calc(100vh - 108px);overflow:hidden;background:#fff;border-radius:16px;box-shadow:0 12px 40px #0005}' +
+    'button{all:unset;position:fixed;right:20px;bottom:20px;z-index:' + Z + ';width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#7c3aed);box-shadow:0 0 22px #6366f1aa;cursor:pointer;display:grid;place-items:center}' +
+    'button:focus-visible{outline:3px solid #a5b4fc;outline-offset:3px}' +
+    '.p{display:none;position:fixed;z-index:' + Z + ';right:20px;bottom:88px;width:380px;height:600px;max-width:calc(100vw - 40px);max-height:calc(100vh - 108px);overflow:hidden;background:#05060f;border:1px solid #fff3;border-radius:16px;box-shadow:0 12px 40px #0008,0 0 50px #6366f144}' +
     '.o .p{display:block}' +
-    'iframe{display:block;width:100%;height:100%;border:0;background:#fff}' +
-    '@media ' + SMALL + '{.p{inset:0;width:auto;height:auto;max-width:none;max-height:none;border-radius:0;box-shadow:none}.o button{display:none}}';
+    'iframe{display:block;width:100%;height:100%;border:0;background:#05060f}' +
+    '@media ' + SMALL + '{.p{inset:0;width:auto;height:auto;max-width:none;max-height:none;border:0;border-radius:0;box-shadow:none}.o button{display:none}}';
 
   var small = window.matchMedia(SMALL), iframe = null, isOpen = false, savedOverflow = null;
 
@@ -54,7 +54,7 @@
   wrap.appendChild(launcher);
   shadow.appendChild(wrap);
 
-  // Full-screen is modal: aria-modal, no host scroll.
+  // Full-screen is modal.
   function layout() {
     var modal = isOpen && small.matches;
     if (modal) panel.setAttribute('aria-modal', 'true'); else panel.removeAttribute('aria-modal');
@@ -81,7 +81,7 @@
     else if (!keepFocus) launcher.focus();
   }
 
-  // Full-screen: close when focus leaves the widget.
+  // Full-screen: close on focus loss.
   function focusLeft() {
     setTimeout(function () {
       if (isOpen && small.matches && document.activeElement !== host) setOpen(false, true);

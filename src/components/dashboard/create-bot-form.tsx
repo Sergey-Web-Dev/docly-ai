@@ -16,7 +16,7 @@ export function CreateBotForm(): React.ReactElement {
   return (
     <Card className="mx-auto w-full max-w-lg">
       <CardHeader>
-        <Bot className="mb-1 size-8 text-primary" aria-hidden />
+        <Bot className="mb-1 size-8 text-indigo-300" aria-hidden />
         <CardTitle as="h2">Create your bot</CardTitle>
         <CardDescription>Give your assistant a name and a welcome message, then upload your documents.</CardDescription>
       </CardHeader>

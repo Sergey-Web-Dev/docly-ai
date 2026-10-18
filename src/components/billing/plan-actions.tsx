@@ -67,7 +67,7 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
   // Upgrading is only possible through the demo checkout; this component only handles the downgrade.
   if (plan.id === 'pro' && !isCurrent) {
     return (
-      <Link href="/dashboard/billing/checkout" className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-indigo-600 text-white hover:bg-indigo-700')}>
+      <Link href="/dashboard/billing/checkout" className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-indigo-600 text-white shadow-[0_0_28px_-6px_rgba(99,102,241,0.8)] hover:bg-indigo-500')}>
         Upgrade to Pro
       </Link>
     );
@@ -93,7 +93,7 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
       ) : (
         <Button ref={triggerRef} type="button" className="w-full" variant="outline" onClick={() => { setNotice(null); setConfirming(true); }}>Cancel subscription (demo)</Button>
       )}
-      <p ref={statusRef} role="status" tabIndex={-1} className={notice ? 'mt-2 text-center text-sm text-emerald-700' : undefined}>{notice}</p>
+      <p ref={statusRef} role="status" tabIndex={-1} className={notice ? 'mt-2 text-center text-sm text-emerald-300' : undefined}>{notice}</p>
     </div>
   );
 }

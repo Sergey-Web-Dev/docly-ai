@@ -236,3 +236,170 @@ html:has(.space-backdrop) body {
     will-change: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Dashboard (aurora + constellations) and chat / widget (galaxy) backdrops. They reuse the `.space-backdrop` hook
+   above, so html is dark on first paint; only the layers inside differ from the landing "sparkle sky".
+   --------------------------------------------------------------------------------------------------------------- */
+.space-backdrop-aurora {
+  background: linear-gradient(180deg, #04060f 0%, #060a1b 50%, #080d22 100%);
+}
+
+.aurora-band {
+  position: absolute;
+  top: -12vh;
+  height: 72vh;
+  border-radius: 50% 50% 46% 54% / 62% 58% 42% 38%;
+  filter: blur(64px);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+}
+
+.aurora-band-teal {
+  left: -12vw;
+  width: 72vw;
+  background: linear-gradient(180deg, transparent 4%, rgb(20 184 166 / 0.3) 42%, rgb(45 212 191 / 0.1) 70%, transparent 100%);
+  animation: aurora-wave-a 41s ease-in-out infinite alternate;
+}
+
+.aurora-band-indigo {
+  left: 22vw;
+  width: 62vw;
+  background: linear-gradient(180deg, transparent 2%, rgb(99 102 241 / 0.34) 40%, rgb(79 70 229 / 0.1) 72%, transparent 100%);
+  animation: aurora-wave-b 53s ease-in-out infinite alternate;
+}
+
+.aurora-band-violet {
+  right: -14vw;
+  width: 58vw;
+  background: linear-gradient(180deg, transparent 6%, rgb(168 85 247 / 0.26) 46%, rgb(139 92 246 / 0.08) 72%, transparent 100%);
+  animation: aurora-wave-c 47s ease-in-out infinite alternate;
+}
+
+.aurora-floor {
+  background: linear-gradient(0deg, rgb(67 56 202 / 0.1), transparent 38%);
+}
+
+@keyframes aurora-wave-a {
+  from { transform: translate3d(0, 0, 0) skewX(-7deg) scaleY(1); opacity: 0.75; }
+  to { transform: translate3d(14vw, 3vh, 0) skewX(6deg) scaleY(1.18); opacity: 1; }
+}
+@keyframes aurora-wave-b {
+  from { transform: translate3d(0, 0, 0) skewX(6deg) scaleY(1.08); opacity: 1; }
+  to { transform: translate3d(-12vw, 4vh, 0) skewX(-8deg) scaleY(0.92); opacity: 0.7; }
+}
+@keyframes aurora-wave-c {
+  from { transform: translate3d(0, 0, 0) skewX(-5deg) scaleY(0.95); opacity: 0.7; }
+  to { transform: translate3d(-10vw, 2vh, 0) skewX(7deg) scaleY(1.15); opacity: 0.95; }
+}
+
+.space-backdrop-galaxy {
+  background: linear-gradient(180deg, #03040b 0%, #060818 55%, #090b1e 100%);
+}
+
+.galaxy-nebula-violet {
+  left: -18vw;
+  top: -10vh;
+  width: 58vw;
+  height: 58vw;
+  background: radial-gradient(closest-side, rgb(109 74 214 / 0.16), rgb(109 74 214 / 0.05) 60%, transparent);
+  animation: nebula-drift-a 110s ease-in-out infinite alternate;
+}
+
+.galaxy-nebula-blue {
+  left: -8vw;
+  bottom: -26vh;
+  width: 64vw;
+  height: 46vw;
+  background: radial-gradient(closest-side, rgb(37 78 190 / 0.14), rgb(37 78 190 / 0.04) 62%, transparent);
+  animation: nebula-drift-c 120s ease-in-out infinite alternate;
+}
+
+.galaxy-vignette {
+  background: radial-gradient(ellipse at 50% 45%, transparent 50%, rgb(2 3 9 / 0.6) 100%);
+}
+
+@media (max-width: 640px) {
+  .aurora-band { filter: blur(40px); }
+}
+
+/* Checkout holds still while card details are typed, and reduced motion freezes every backdrop. */
+.space-backdrop[data-paused] *,
+.space-backdrop[data-paused] {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-band {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   `.space-ui`: dark-glass design tokens for the dashboard and the chat. The shadcn components read these custom
+   properties, so cards, inputs, buttons and badges turn into glass without per-component overrides.
+   Contrast notes (against the darkest/brightest backdrop areas): body text ~14:1, muted text >= 7:1, input
+   boundary (--input) >= 3.5:1, focus ring >= 4.5:1.
+   --------------------------------------------------------------------------------------------------------------- */
+.space-ui {
+  color-scheme: dark;
+  color: var(--foreground);
+  --background: oklch(1 0 0 / 0.05);
+  --foreground: oklch(0.96 0.006 270);
+  --card: oklch(1 0 0 / 0.055);
+  --card-foreground: oklch(0.96 0.006 270);
+  --popover: oklch(0.2 0.04 270);
+  --popover-foreground: oklch(0.96 0.006 270);
+  --primary: oklch(0.51 0.23 277);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(1 0 0 / 0.1);
+  --secondary-foreground: oklch(0.96 0.006 270);
+  --muted: oklch(1 0 0 / 0.07);
+  --muted-foreground: oklch(0.8 0.02 270);
+  --accent: oklch(1 0 0 / 0.1);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.8 0.13 22);
+  --border: oklch(1 0 0 / 0.18);
+  --input: oklch(1 0 0 / 0.42);
+  --ring: oklch(0.8 0.11 277);
+}
+
+@layer components {
+  .space-ui [data-slot='card'] {
+    --tw-ring-color: rgb(255 255 255 / 0.1);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 18px 50px -28px rgb(79 70 229 / 0.55);
+  }
+
+  .space-ui [data-slot='card-footer'] {
+    background: transparent;
+    border-color: rgb(255 255 255 / 0.1);
+  }
+
+  .space-ui [data-slot='input'],
+  .space-ui [data-slot='textarea'] {
+    background-color: rgb(255 255 255 / 0.04);
+  }
+
+  .space-ui [data-slot='input']:disabled,
+  .space-ui [data-slot='textarea']:disabled {
+    background-color: rgb(255 255 255 / 0.025);
+  }
+
+  /* Native controls (file picker button) follow the dark scheme. */
+  .space-ui input[type='file']::file-selector-button {
+    margin-right: 0.6rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: rgb(255 255 255 / 0.14);
+    color: inherit;
+    padding: 0.2rem 0.6rem;
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+}
