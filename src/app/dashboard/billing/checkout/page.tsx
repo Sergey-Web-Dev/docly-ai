@@ -21,11 +21,11 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
       <h2 className="text-xl font-semibold">Demo checkout</h2>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="h-fit bg-white">
+        <Card className="h-fit">
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <CardTitle as="h3">Order summary</CardTitle>
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Test mode</span>
+              <span className="rounded-full border border-amber-300/40 bg-amber-400/15 px-2 py-0.5 text-xs font-medium text-amber-100">Test mode</span>
             </div>
             <CardDescription>Billed monthly · cancel anytime</CardDescription>
           </CardHeader>
@@ -38,7 +38,7 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
           </CardContent>
         </Card>
 
-        <Card className="bg-white">
+        <Card>
           <CardHeader>
             <CardTitle as="h3">Payment details</CardTitle>
           </CardHeader>

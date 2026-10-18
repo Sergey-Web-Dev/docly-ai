@@ -7,7 +7,7 @@ interface DocumentStatusBadgeProps {
 
 export function DocumentStatusBadge({ status }: DocumentStatusBadgeProps): React.ReactElement {
   if (status === 'ready') {
-    return <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 aria-hidden />Ready</Badge>;
+    return <Badge className="border-emerald-300/30 bg-emerald-400/15 text-emerald-200"><CheckCircle2 aria-hidden />Ready</Badge>;
   }
   if (status === 'failed') {
     return <Badge variant="destructive"><XCircle aria-hidden />Failed</Badge>;

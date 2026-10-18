@@ -158,12 +158,12 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate autoComplete="off" aria-label="Payment details" className="space-y-5">
-      <div role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <div role="note" className="rounded-lg border border-amber-300/50 bg-amber-400/10 p-3 text-sm text-amber-50">
         <p className="font-semibold">Never enter a real card — real cards are rejected.</p>
         <p className="mt-1">
           <strong>Demo checkout — no real payment.</strong> Use test card <strong>{TEST_CARD_NUMBER}</strong>, any future date, any CVC.
         </p>
-        <Button type="button" size="sm" variant="outline" className="mt-2 border-amber-400 bg-white" onClick={fillTestCard} disabled={isDisabled}>
+        <Button type="button" size="sm" variant="outline" className="mt-2 border-amber-300/60 bg-amber-300/10 text-amber-50 hover:bg-amber-300/20 hover:text-white" onClick={fillTestCard} disabled={isDisabled}>
           Fill test card
         </Button>
         <details className="mt-2">
@@ -176,7 +176,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
         </details>
       </div>
 
-      <CheckoutField id="checkout-email" label="Email" name="demo-contact" type="email" value={email} readOnly autoComplete="off" className="[&_input]:bg-zinc-50" />
+      <CheckoutField id="checkout-email" label="Email" name="demo-contact" type="email" value={email} readOnly autoComplete="off" className="[&_input]:text-zinc-300" />
 
       <CheckoutField
         id={FIELD_IDS.number}
@@ -239,10 +239,10 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
       />
 
       {formError ? (
-        <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 outline-none">{formError}</p>
+        <p ref={errorRef} role="alert" tabIndex={-1} className="rounded-lg border border-red-300/40 bg-red-400/10 p-3 text-sm text-red-100 outline-none">{formError}</p>
       ) : null}
 
-      <Button type="submit" size="lg" className="h-11 w-full bg-indigo-600 text-base text-white hover:bg-indigo-700" disabled={isDisabled}>
+      <Button type="submit" size="lg" className="h-11 w-full bg-indigo-600 text-base text-white shadow-[0_0_28px_-6px_rgba(99,102,241,0.8)] hover:bg-indigo-500" disabled={isDisabled}>
         {isProcessing ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -253,7 +253,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
         )}
       </Button>
       <p role="status" className="sr-only">{isProcessing ? 'Processing payment…' : ''}</p>
-      <p className="text-center text-xs text-zinc-500">Card details stay in your browser. Only a test token is sent to the server.</p>
+      <p className="text-center text-xs text-zinc-400">Card details stay in your browser. Only a test token is sent to the server.</p>
     </form>
   );
 }
@@ -261,16 +261,16 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
 function SuccessPanel({ receipt, panelRef }: { readonly receipt: Receipt; readonly panelRef: React.RefObject<HTMLDivElement | null> }): React.ReactElement {
   const brandLabel = BRAND_LABEL[receipt.brand];
   return (
-    <div ref={panelRef} tabIndex={-1} role="status" data-testid="checkout-success" className="space-y-4 rounded-lg border border-emerald-300 bg-emerald-50 p-5 outline-none">
-      <div className="flex items-center gap-2 text-emerald-900">
+    <div ref={panelRef} tabIndex={-1} role="status" data-testid="checkout-success" className="space-y-4 rounded-lg border border-emerald-300/40 bg-emerald-400/10 p-5 outline-none">
+      <div className="flex items-center gap-2 text-emerald-100">
         <CheckCircle2 className="size-5" aria-hidden />
         <h3 className="text-lg font-semibold">Payment successful — you&apos;re on Pro</h3>
       </div>
-      <dl className="space-y-1 text-sm text-emerald-950">
+      <dl className="space-y-1 text-sm text-emerald-50">
         <div className="flex justify-between gap-4"><dt>Demo receipt</dt><dd data-testid="checkout-charge-id" className="font-mono">{receipt.chargeId}</dd></div>
         {receipt.last4 ? <div className="flex justify-between gap-4"><dt>Card</dt><dd>{brandLabel ? `${brandLabel} ` : ''}•••• {receipt.last4}</dd></div> : null}
       </dl>
-      <p className="text-xs text-emerald-900">This was a demo: no money was charged.</p>
+      <p className="text-xs text-emerald-200">This was a demo: no money was charged.</p>
       <Link href="/dashboard/billing" className={cn(buttonVariants({ variant: 'default' }), 'bg-emerald-700 text-white hover:bg-emerald-800')}>Back to billing</Link>
     </div>
   );
