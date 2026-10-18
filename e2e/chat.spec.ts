@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { setMonthlyUsage, signUpFresh } from './helpers';
+import { expectLightText, expectSky, setMonthlyUsage, signUpFresh } from './helpers';
 
 const NOT_FOUND = "I don't know based on these documents.";
 const ANSWER_TIMEOUT = 30_000;
@@ -65,6 +65,10 @@ test('owner chats with grounded answers, gets not-found, and hits the message qu
     const text = await lastAssistantText(page);
     console.log(`[chat-e2e] Q: ${question} -> A: ${text}`);
     expect(text).toContain(expected);
+    // Owner playground: a grounded answer names the document it came from, and the SOURCES line never leaks into the text.
+    const lastAssistant = page.locator('li[data-role="assistant"]').last();
+    await expect(lastAssistant.getByTestId('chat-source').filter({ hasText: 'handbook.txt' })).toHaveCount(1);
+    expect(text).not.toMatch(/SOURCES\s*:/i);
   }
 
   // 3. Unrelated question -> exact not-found sentence.
@@ -74,6 +78,7 @@ test('owner chats with grounded answers, gets not-found, and hits the message qu
   const notFound = await lastAssistantText(page);
   console.log(`[chat-e2e] Q: unrelated -> A: ${notFound}`);
   expect(notFound).toBe(NOT_FOUND);
+  await expect(page.locator('li[data-role="assistant"]').last().getByTestId('chat-sources')).toHaveCount(0);
 
   // 4. Usage counter persists across reload.
   const usageBefore = (await page.getByTestId('chat-usage').innerText()).trim();
@@ -86,4 +91,45 @@ test('owner chats with grounded answers, gets not-found, and hits the message qu
   await ask(page, 'How many vacation days do new hires get?');
   await expect(page.getByText("You've used all 30 messages this month on the Free plan.")).toBeVisible({ timeout: ANSWER_TIMEOUT });
   await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/dashboard/billing');
+});
+
+// Mocked /api/chat: needs only an account and a bot (Supabase), not Gemini, and runs on both viewports.
+test('playground renders the galaxy sky and source chips for owner answers', async ({ page }) => {
+  await signUpFresh(page);
+  await page.getByLabel('Bot name').fill('Acme Helper');
+  await page.getByLabel('Welcome message').fill('Hi! Ask me about Acme.');
+  await page.getByRole('button', { name: 'Create bot' }).click();
+  await expect(page.getByTestId('documents-usage')).toBeVisible();
+
+  const answers = [
+    { answer: 'New hires get 20 vacation days.', isGrounded: true, usage: { used: 1, limit: 30 }, sources: [{ documentId: 'doc-1', fileName: 'employee-handbook.pdf' }, { documentId: 'doc-2', fileName: 'benefits.txt' }] },
+    { answer: NOT_FOUND, isGrounded: false, usage: { used: 2, limit: 30 }, sources: [] },
+    { answer: 'Remote work is allowed on Tuesdays.', isGrounded: true, usage: { used: 3, limit: 30 }, sources: [{ documentId: 'doc-1', fileName: 'employee-handbook.pdf' }] },
+  ];
+  let call = 0;
+  await page.route('**/api/chat', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(answers[call++]) }));
+
+  await page.goto('/dashboard/chat');
+  await expectSky(page, 'galaxy');
+  await expectLightText(page.getByRole('heading', { name: 'Acme Helper' }));
+  await expect(page.locator('[data-ready="true"]').first()).toBeAttached({ timeout: 30_000 });
+
+  await ask(page, 'How many vacation days?');
+  const first = page.locator('li[data-role="assistant"]').nth(1);
+  await expect(first).toContainText('New hires get 20 vacation days.');
+  await expect(first.getByText('Sources', { exact: true })).toBeVisible();
+  await expect(first.getByTestId('chat-source')).toHaveText(['employee-handbook.pdf', 'benefits.txt']);
+
+  await ask(page, 'What is the capital of Australia?');
+  const second = page.locator('li[data-role="assistant"]').nth(2);
+  await expect(second).toHaveText(NOT_FOUND);
+  await expect(second.getByTestId('chat-sources')).toHaveCount(0);
+
+  await ask(page, 'Which days can employees work remotely?');
+  const third = page.locator('li[data-role="assistant"]').nth(3);
+  await expect(third.getByText('Source', { exact: true })).toBeVisible();
+  await expect(third.getByTestId('chat-source')).toHaveText(['employee-handbook.pdf']);
+
+  const hasOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  expect(hasOverflow).toBe(false);
 });
