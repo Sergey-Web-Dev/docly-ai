@@ -1,4 +1,4 @@
-export const MAX_SOURCES = 3;
+import { MAX_SOURCES } from '@/lib/sources';
 
 export interface ChatSource {
   readonly documentId: string;

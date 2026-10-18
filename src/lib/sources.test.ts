@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractSources, selectSources } from '@/lib/sources';
+import { extractSources, selectDocumentIds, toAnswerSources } from '@/lib/sources';
 
 describe('extractSources', () => {
   it('should strip a trailing SOURCES line and return its indices', () => {
@@ -15,7 +15,7 @@ describe('extractSources', () => {
     ['markdown bold', '**SOURCES:** 2'],
     ['blank lines and trailing spaces', '\n\nSOURCES: 2  \n\n'],
     ['indented', '   SOURCES: 2'],
-    ['words around numbers', 'SOURCES: documents 2'],
+    ['bracketed with parentheses', 'Sources: (2)'],
   ])('should strip a %s variant', (_name, tail) => {
     expect(extractSources(`Answer text.\n${tail}`, 5)).toEqual({ answer: 'Answer text.', indices: [2] });
   });
@@ -28,8 +28,9 @@ describe('extractSources', () => {
     expect(extractSources('  Plain answer.\n', 5)).toEqual({ answer: 'Plain answer.', indices: [] });
   });
 
-  it('should strip a SOURCES line that holds only garbage and return no indices', () => {
-    expect(extractSources('Answer.\nSOURCES: n/a', 5)).toEqual({ answer: 'Answer.', indices: [] });
+  it.each([['Source: the HR team'], ['Sources - see the handbook'], ['Source: n/a']])('should keep a content line without digits after the separator: %s', (line) => {
+    const text = `Answer.\n${line}`;
+    expect(extractSources(text, 5)).toEqual({ answer: text, indices: [] });
   });
 
   it('should not strip the word sources when it is in the middle of the answer', () => {
@@ -46,7 +47,7 @@ describe('extractSources', () => {
   });
 });
 
-describe('selectSources', () => {
+describe('selectDocumentIds', () => {
   const chunks = [
     { documentId: 'd1', similarity: 0.6 },
     { documentId: 'd1', similarity: 0.9 },
@@ -54,33 +55,35 @@ describe('selectSources', () => {
     { documentId: 'd3', similarity: 0.65 },
     { documentId: 'd4', similarity: 0.58 },
   ];
-  const names = new Map([
-    ['d1', 'a.pdf'],
-    ['d2', 'b.txt'],
-    ['d3', 'c.txt'],
-    ['d4', 'd.txt'],
-  ]);
 
   it('should map indices to unique documents in order of first use', () => {
-    expect(selectSources([3, 1, 2], chunks, names)).toEqual([
+    expect(selectDocumentIds([3, 1, 2], chunks)).toEqual(['d2', 'd1']);
+  });
+
+  it('should keep at most 3 documents', () => {
+    expect(selectDocumentIds([1, 3, 4, 5], chunks)).toEqual(['d1', 'd2', 'd3']);
+  });
+
+  it('should fall back to the document of the most similar chunk when no indices are given', () => {
+    expect(selectDocumentIds([], chunks)).toEqual(['d1']);
+  });
+
+  it('should return no documents when there are no chunks', () => {
+    expect(selectDocumentIds([], [])).toEqual([]);
+  });
+});
+
+describe('toAnswerSources', () => {
+  const names = new Map([['d1', 'a.pdf'], ['d2', 'b.txt']]);
+
+  it('should attach file names in order', () => {
+    expect(toAnswerSources(['d2', 'd1'], names)).toEqual([
       { documentId: 'd2', fileName: 'b.txt' },
       { documentId: 'd1', fileName: 'a.pdf' },
     ]);
   });
 
-  it('should keep at most 3 documents', () => {
-    expect(selectSources([1, 3, 4, 5], chunks, names).map((s) => s.documentId)).toEqual(['d1', 'd2', 'd3']);
-  });
-
-  it('should fall back to the document of the most similar chunk when no indices are given', () => {
-    expect(selectSources([], chunks, names)).toEqual([{ documentId: 'd1', fileName: 'a.pdf' }]);
-  });
-
   it('should skip documents whose file name is unknown', () => {
-    expect(selectSources([1, 3], chunks, new Map([['d2', 'b.txt']]))).toEqual([{ documentId: 'd2', fileName: 'b.txt' }]);
-  });
-
-  it('should return no sources when there are no chunks', () => {
-    expect(selectSources([], [], names)).toEqual([]);
+    expect(toAnswerSources(['d1', 'd9'], names)).toEqual([{ documentId: 'd1', fileName: 'a.pdf' }]);
   });
 });

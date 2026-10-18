@@ -16,7 +16,8 @@ export interface SourceChunk {
 }
 
 // Last line only: "SOURCES: 1, 3" in any case, optionally bold/bracketed, with ":" or a dash as separator.
-const SOURCES_LINE = /(?:^|\n)[ \t>*_#`[(]*sources?[ \t*_`\])]*[:\-–—][^\n]*$/i;
+// The separator must be followed by a number (optionally bracketed), so a content line like "Source: the HR team" stays.
+const SOURCES_LINE = /(?:^|\n)[ \t>*_#`[(]*sources?[ \t*_`\])]*[:\-–—][ \t*_`]*[[(]?[ \t]*\d[^\n]*$/i;
 
 // Strips a trailing SOURCES line from the model reply and returns the valid 1-based indices it listed.
 export function extractSources(text: string, chunkCount: number): ExtractedSources {
@@ -28,17 +29,25 @@ export function extractSources(text: string, chunkCount: number): ExtractedSourc
   return { answer: trimmed.slice(0, match.index).trim(), indices: [...new Set(valid)] };
 }
 
-// Maps 1-based chunk indices to unique documents (first use wins, at most MAX_SOURCES).
-// Without indices it falls back to the document of the most similar chunk.
-export function selectSources(indices: readonly number[], chunks: readonly SourceChunk[], fileNames: ReadonlyMap<string, string>): AnswerSource[] {
-  const documentIds = indices.length > 0 ? indices.map((index) => chunks[index - 1]?.documentId) : [mostSimilarDocumentId(chunks)];
+// Maps 1-based chunk indices to unique document ids (first use wins, at most MAX_SOURCES).
+// Without indices it falls back to the document of the most similar chunk. Pure id mapping: no file names involved.
+export function selectDocumentIds(indices: readonly number[], chunks: readonly SourceChunk[]): string[] {
+  const candidates = indices.length > 0 ? indices.map((index) => chunks[index - 1]?.documentId) : [mostSimilarDocumentId(chunks)];
+  const ids: string[] = [];
+  for (const documentId of candidates) {
+    if (documentId === undefined || ids.includes(documentId)) continue;
+    ids.push(documentId);
+    if (ids.length === MAX_SOURCES) break;
+  }
+  return ids;
+}
+
+// Attaches file names (owner mode only); documents whose name is unknown are skipped.
+export function toAnswerSources(documentIds: readonly string[], fileNames: ReadonlyMap<string, string>): AnswerSource[] {
   const sources: AnswerSource[] = [];
   for (const documentId of documentIds) {
-    const fileName = documentId === undefined ? undefined : fileNames.get(documentId);
-    if (documentId === undefined || fileName === undefined) continue;
-    if (sources.some((source) => source.documentId === documentId)) continue;
-    sources.push({ documentId, fileName });
-    if (sources.length === MAX_SOURCES) break;
+    const fileName = fileNames.get(documentId);
+    if (fileName !== undefined) sources.push({ documentId, fileName });
   }
   return sources;
 }

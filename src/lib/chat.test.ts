@@ -20,6 +20,7 @@ interface Fake {
   readonly admin: SupabaseClient<Database>;
   readonly rpc: ReturnType<typeof vi.fn>;
   readonly docsFilters: [string, unknown][];
+  readonly docsSelect: ReturnType<typeof vi.fn>;
 }
 
 interface MatchRow {
@@ -55,7 +56,7 @@ function fakeAdmin(options: { reserve?: string | null; reserveError?: boolean; r
   docsChain.select.mockReturnValue(docsChain);
   const from = vi.fn((table: string) => (table === 'documents' ? docsChain : chain));
   const admin = { rpc, from } as unknown as SupabaseClient<Database>;
-  return { admin, rpc, docsFilters };
+  return { admin, rpc, docsFilters, docsSelect: docsChain.select };
 }
 
 const ownerFree: ChatTarget = { chatbotId: 'bot-1', ownerId: 'owner-1', plan: PLANS.free, mode: 'owner' };
@@ -139,7 +140,7 @@ describe('answerQuestion', () => {
     const nonces = calls.map((input) => /<document-([0-9a-f]{8})>/.exec(input.systemInstruction)?.[1]);
     expect(nonces[0]).toBeDefined();
     expect(nonces[0]).not.toBe(nonces[1]);
-    calls.forEach((input, index) => expect(input.prompt).toContain(`<document-${nonces[index]} index="1" source="handbook.pdf">`));
+    calls.forEach((input, index) => expect(input.prompt).toContain(`<document-${nonces[index]} index="1">`));
   });
 
   it('should rethrow the original error even when the refund itself fails', async () => {
@@ -266,13 +267,33 @@ describe('answerQuestion', () => {
       expect(blocked.sources).toEqual([]);
     });
 
-    it('should load file names only for the bot and the matched documents, and put them in the prompt', async () => {
+    it('should load file names only after generation, for the bot and the mapped documents, and keep them out of the prompt', async () => {
+      generateAnswer.mockResolvedValue({ kind: 'answer', text: 'Remote on Tuesday.\nSOURCES: 2', finishReason: 'STOP' });
       const { admin, docsFilters } = fakeAdmin({ matches: twoDocs });
       await answerQuestion(admin, ownerFree, 'q');
-      expect(docsFilters).toEqual([['chatbot_id', 'bot-1'], ['id', ['doc-1', 'doc-2']]]);
+      expect(docsFilters).toEqual([['chatbot_id', 'bot-1'], ['id', ['doc-2']]]);
       const prompt = (generateAnswer.mock.calls[0]?.[0] as { prompt: string }).prompt;
-      expect(prompt).toContain('index="1" source="handbook.pdf"');
-      expect(prompt).toContain('index="2" source="faq.txt"');
+      expect(prompt).not.toContain('source=');
+      expect(prompt).not.toMatch(/handbook|faq/);
+    });
+
+    it('should never query documents.file_name and keep file names out of the prompt in public mode', async () => {
+      generateAnswer.mockResolvedValue({ kind: 'answer', text: 'Remote on Tuesday.\nSOURCES: 2', finishReason: 'STOP' });
+      const { admin, docsSelect } = fakeAdmin({ matches: twoDocs });
+      const result = await answerQuestion(admin, { ...ownerFree, mode: 'public' }, 'q');
+      expect(docsSelect).not.toHaveBeenCalled();
+      const prompt = (generateAnswer.mock.calls[0]?.[0] as { prompt: string }).prompt;
+      expect(prompt).not.toMatch(/source=|handbook|faq/);
+      expect(JSON.stringify(result)).not.toMatch(/handbook|faq/);
+    });
+
+    it.each([[''], ['SOURCES: 1'], ['  \n']])('should treat an empty answer (%j) as no match: refund, not-found answer and no sources', async (text) => {
+      generateAnswer.mockResolvedValue({ kind: 'answer', text, finishReason: 'STOP' });
+      const { admin, rpc, docsSelect } = fakeAdmin({ matches: twoDocs });
+      const result = await answerQuestion(admin, ownerFree, 'q');
+      expect(result).toMatchObject({ answer: NOT_FOUND_ANSWER, isGrounded: false, sources: [] });
+      expect(callsTo(rpc, 'refund_message')).toHaveLength(1);
+      expect(docsSelect).not.toHaveBeenCalled();
     });
 
     it('should refund and throw PROVIDER_UNAVAILABLE when the file name lookup fails', async () => {

@@ -23,13 +23,12 @@ export function buildSystemInstruction(nonce: string): string {
 
 export interface ContextChunk {
   readonly content: string;
-  readonly fileName: string;
 }
 
 export function buildPrompt(question: string, chunks: readonly ContextChunk[], nonce: string): string {
   const tag = documentTag(nonce);
   const documents = chunks
-    .map((chunk, index) => `<${tag} index="${index + 1}" source="${escapeAttribute(chunk.fileName)}">\n${escapeAngles(chunk.content)}\n</${tag}>`)
+    .map((chunk, index) => `<${tag} index="${index + 1}">\n${escapeAngles(chunk.content)}\n</${tag}>`)
     .join('\n\n');
   return `${documents}\n\nQuestion: ${escapeAngles(question)}`;
 }
@@ -37,11 +36,6 @@ export function buildPrompt(question: string, chunks: readonly ContextChunk[], n
 // Escapes every angle bracket (ASCII and fullwidth) so user/file text can never form a tag of any kind.
 function escapeAngles(text: string): string {
   return text.replace(/[<＜]/g, '&lt;').replace(/[>＞]/g, '&gt;');
-}
-
-// Same as escapeAngles, plus quotes and line breaks so a file name cannot leave its attribute.
-function escapeAttribute(text: string): string {
-  return escapeAngles(text).replace(/"/g, '&quot;').replace(/\s+/g, ' ');
 }
 
 export function isNotFoundAnswer(answer: string): boolean {

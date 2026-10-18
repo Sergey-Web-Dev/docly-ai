@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_SOURCES, parseSources, sourcesLabel } from './chat-sources';
+import { parseSources, sourcesLabel } from './chat-sources';
+import { MAX_SOURCES } from './sources';
 
 describe('parseSources', () => {
   it('should return an empty list when the value is missing or not an array', () => {

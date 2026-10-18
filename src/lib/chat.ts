@@ -6,7 +6,7 @@ import { AppError } from '@/lib/errors';
 import type { Plan } from '@/lib/plans';
 import { BLOCKED_ANSWER, buildPrompt, buildSystemInstruction, createNonce, isNotFoundAnswer, NOT_FOUND_ANSWER } from '@/lib/prompt';
 import { CHAT_DEADLINE_MS, MATCH_COUNT, MIN_SIMILARITY } from '@/lib/rag-config';
-import { type AnswerSource, extractSources, selectSources } from '@/lib/sources';
+import { type AnswerSource, extractSources, selectDocumentIds, toAnswerSources } from '@/lib/sources';
 import { getMonthlyUsage, refundMessage, reserveMessage } from '@/lib/usage';
 
 export interface ChatTarget {
@@ -83,14 +83,15 @@ async function retrieveAndGenerate(admin: SupabaseClient<Database>, chatbotId: s
   });
   if (error) throw error;
   if (data.length === 0) return { kind: 'no-match' };
-  const fileNames = await loadFileNames(admin, chatbotId, data.map((row) => row.document_id));
-  const chunks = data.map((row) => ({ content: row.content, documentId: row.document_id, similarity: row.similarity, fileName: fileNames.get(row.document_id) ?? 'document' }));
+  const chunks = data.map((row) => ({ content: row.content, documentId: row.document_id, similarity: row.similarity }));
   const nonce = createNonce();
   const result = await generateAnswer({ systemInstruction: buildSystemInstruction(nonce), prompt: buildPrompt(question, chunks, nonce) }, deadline);
   if (result.kind === 'blocked') return { kind: 'blocked', finishReason: result.finishReason };
-  // The SOURCES line is always removed; file names only leave the server in owner mode.
+  // The SOURCES line is always removed. File names never reach the model: they are loaded after generation, owner mode only.
   const { answer, indices } = extractSources(result.text, chunks.length);
-  const sources = isOwner && !isNotFoundAnswer(answer) ? selectSources(indices, chunks, fileNames) : [];
+  if (answer === '') return { kind: 'no-match' };
+  const documentIds = isOwner && !isNotFoundAnswer(answer) ? selectDocumentIds(indices, chunks) : [];
+  const sources = documentIds.length > 0 ? toAnswerSources(documentIds, await loadFileNames(admin, chatbotId, documentIds)) : [];
   return { kind: 'answer', text: answer, sources, finishReason: result.finishReason };
 }
 
