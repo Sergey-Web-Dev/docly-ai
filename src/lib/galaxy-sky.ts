@@ -11,8 +11,10 @@ export const GALAXY_TONE_CSS: readonly string[] = GALAXY_TONES.map(([r, g, b]) =
 
 const ARMS = 2;
 /** How tightly the arms wind: radians of rotation from the core to the rim. */
-const WINDING = 4.2;
-const BULGE_SHARE = 0.22;
+const WINDING = 3.6;
+const BULGE_SHARE = 0.2;
+/** Faint particles spread over the whole disc: fills the gaps between the arms. */
+const DISC_SHARE = 0.14;
 const MIN_PARTICLES = 400;
 const MAX_PARTICLES = 1600;
 const PARTICLES_PER_RADIUS_PX = 3.4;
@@ -55,16 +57,20 @@ export function generateGalaxyParticles(count: number, seed: number): readonly G
     const isBulge = rng() < BULGE_SHARE;
     let r: number;
     let theta: number;
+    const isDisc = !isBulge && rng() < DISC_SHARE / (1 - BULGE_SHARE);
     if (isBulge) {
-      r = rng() ** 2 * 0.3;
+      r = rng() ** 1.4 * 0.34;
+      theta = rng() * Math.PI * 2;
+    } else if (isDisc) {
+      r = Math.sqrt(rng()) * 0.95;
       theta = rng() * Math.PI * 2;
     } else {
       r = 0.04 + rng() ** 1.5 * 0.96;
       const arm = Math.floor(rng() * ARMS);
       // Wider scatter near the core, tight arms towards the rim.
-      theta = (arm / ARMS) * Math.PI * 2 + WINDING * r + gaussian(rng) * (0.9 - 0.55 * r);
+      theta = (arm / ARMS) * Math.PI * 2 + WINDING * r + gaussian(rng) * (1 - 0.5 * r);
     }
-    const brightness = rng() ** 3 * (isBulge ? 1 : 0.85);
+    const brightness = rng() ** 3 * (isBulge ? 0.45 : isDisc ? 0.4 : 0.85);
     particles.push({
       lx: Math.cos(theta) * r,
       ly: Math.sin(theta) * r,
@@ -91,14 +97,14 @@ export interface GalaxyLayout {
   readonly radius: number;
 }
 
-/** Bottom-right on a wide viewport (beside the chat column), near the top on narrow / portrait ones. */
+/** Bottom-right on a wide viewport (beside the chat column), top-right corner on narrow / portrait ones. The bright core never sits behind text. */
 export function galaxyLayout(width: number, height: number): GalaxyLayout {
   const isNarrow = width < 700 || height > width * 1.05;
   if (isNarrow) {
-    const radius = Math.min(width * 0.62, height * 0.42);
-    return { cx: width * 0.6, cy: height * 0.2, radius };
+    // Core in the top-right corner, clear of the title and the chat text; the arms sweep across the screen.
+    return { cx: width * 0.86, cy: height * 0.13, radius: Math.min(width * 0.95, height * 0.5) };
   }
-  return { cx: width * 0.74, cy: height * 0.64, radius: Math.min(width * 0.36, height * 0.55) };
+  return { cx: width * 0.8, cy: height * 0.6, radius: Math.min(width * 0.36, height * 0.55) };
 }
 
 /** In-plane rotation angle in radians at `time` ms. */

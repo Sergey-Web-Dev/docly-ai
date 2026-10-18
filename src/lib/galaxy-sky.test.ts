@@ -76,14 +76,14 @@ describe('galaxyLayout', () => {
     expect(layout.radius).toBeGreaterThan(300);
   });
 
-  it('should place the galaxy near the top on a narrow phone viewport', () => {
+  it('should place the core in the top-right corner on a narrow phone viewport', () => {
     const layout = galaxyLayout(375, 812);
-    expect(layout.cy).toBeLessThan(812 * 0.35);
-    expect(layout.radius).toBeLessThan(375);
+    expect(layout.cy).toBeLessThan(812 * 0.2);
+    expect(layout.cx).toBeGreaterThan(375 * 0.7);
   });
 
   it('should keep the widget iframe (380x600) in the top placement', () => {
-    expect(galaxyLayout(380, 600).cy).toBeLessThan(600 * 0.4);
+    expect(galaxyLayout(380, 600).cy).toBeLessThan(600 * 0.2);
   });
 });
 
