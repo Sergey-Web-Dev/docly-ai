@@ -40,7 +40,7 @@ function drawStar(ctx: CanvasRenderingContext2D, star: Star, state: FieldState, 
   let py = wrapUnit((star.y * height + driftX * 0.35 + state.offsetY * star.z) / height) * height;
 
   const twinkle = 0.65 + 0.35 * Math.sin(time * 0.0015 * (0.6 + star.z) + star.phase);
-  let alpha = (0.22 + 0.42 * star.z) * twinkle;
+  let alpha = (0.3 + 0.45 * star.z) * twinkle;
   let radius = star.radius;
 
   const dx = state.pointerX - px;

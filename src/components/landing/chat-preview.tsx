@@ -53,7 +53,7 @@ export function ChatPreview(): React.ReactElement {
           <FileText className="size-4 text-indigo-600" />
           employee-handbook.pdf
         </div>
-        <div className="h-44 space-y-3 overflow-hidden pt-4 text-sm">
+        <div className="h-52 space-y-3 sm:h-44 overflow-hidden pt-4 text-sm">
           <div className={isUserVisible ? 'ml-auto w-fit max-w-[85%] rounded-lg rounded-br-sm bg-indigo-600 px-3 py-2 text-white' : 'invisible h-9'}>
             {frame.userText}
             {frame.phase === 'user-typing' ? <Caret /> : null}
