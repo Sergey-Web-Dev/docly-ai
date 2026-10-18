@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, planIdSchema } from '@/lib/schemas';
+import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, planIdSchema, downgradePlanSchema, checkoutInputSchema } from '@/lib/schemas';
 
 function form(email: string, password: string): FormData {
   const data = new FormData();
@@ -103,4 +103,33 @@ describe('planIdSchema', () => {
   it.each(['enterprise', 'PRO', '', null, 1])('should reject the unknown plan %s', (value) => {
     expect(planIdSchema.safeParse(value).success).toBe(false);
   });
+});
+
+describe('downgradePlanSchema', () => {
+  it('should accept free', () => {
+    expect(downgradePlanSchema.parse('free')).toBe('free');
+  });
+
+  it('should point to checkout when pro is requested', () => {
+    const result = downgradePlanSchema.safeParse('pro');
+    expect(result.success ? null : result.error.issues[0]?.message).toBe('Use checkout to upgrade.');
+  });
+
+  it.each(['enterprise', '', null, 1])('should reject %s as an invalid plan', (value) => {
+    const result = downgradePlanSchema.safeParse(value);
+    expect(result.success ? null : result.error.issues[0]?.message).toBe('Invalid plan.');
+  });
+});
+
+describe('checkoutInputSchema', () => {
+  it('should accept a known test token with optional display data', () => {
+    expect(checkoutInputSchema.parse({ token: 'tok_visa', brand: 'visa', last4: '4242' })).toEqual({ token: 'tok_visa', brand: 'visa', last4: '4242' });
+  });
+
+  it.each([{ token: 'tok_x' }, { token: 'tok_visa', last4: '424' }, { token: 'tok_visa', brand: 'diners' }, { token: 'tok_visa', number: '4242424242424242' }, null])(
+    'should reject %j',
+    (value) => {
+      expect(checkoutInputSchema.safeParse(value).success).toBe(false);
+    },
+  );
 });

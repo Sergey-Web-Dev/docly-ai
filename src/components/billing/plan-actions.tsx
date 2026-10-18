@@ -1,10 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { setPlan } from '@/app/dashboard/actions';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import type { Plan, PlanId } from '@/lib/plans';
+import { cn } from '@/lib/utils';
 
 interface PlanActionsProps {
   readonly plan: Plan;
@@ -38,13 +40,12 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
   }, [notice]);
 
   const isCurrent = plan.id === currentPlanId;
-  const label = plan.id === 'pro' ? 'Demo upgrade — no payment' : 'Downgrade to Free';
 
   function confirm(): void {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await setPlan(plan.id);
+        const result = await setPlan('free');
         if (!result.ok) {
           setError(result.error);
           return;
@@ -63,6 +64,15 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
     setConfirming(false);
   }
 
+  // Upgrading is only possible through the demo checkout; this component only handles the downgrade.
+  if (plan.id === 'pro' && !isCurrent) {
+    return (
+      <Link href="/dashboard/billing/checkout" className={cn(buttonVariants({ variant: 'default' }), 'w-full bg-indigo-600 text-white hover:bg-indigo-700')}>
+        Upgrade to Pro
+      </Link>
+    );
+  }
+
   return (
     <div>
       {isCurrent ? (
@@ -70,7 +80,7 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
       ) : confirming ? (
         <div role="group" aria-label={`Switch to ${plan.name}`} className="space-y-2 rounded-lg border bg-muted/40 p-3">
           <p className="text-sm">
-            {plan.id === 'pro' ? 'Switch to Pro? This is a demo — nothing is charged.' : 'Switch to Free? Your documents are kept, but new uploads follow the Free limit.'}
+            Cancel your subscription and switch to Free? Your documents are kept, but new uploads follow the Free limit. No card is needed.
           </p>
           <div className="flex gap-2">
             <Button ref={confirmRef} type="button" size="sm" onClick={confirm} focusableWhenDisabled disabled={pending} aria-label={pending ? undefined : `Confirm switch to ${plan.name}`}>
@@ -81,7 +91,7 @@ export function PlanActions({ plan, currentPlanId }: PlanActionsProps): React.Re
           {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
         </div>
       ) : (
-        <Button ref={triggerRef} type="button" className="w-full" variant={plan.id === 'pro' ? 'default' : 'outline'} onClick={() => { setNotice(null); setConfirming(true); }}>{label}</Button>
+        <Button ref={triggerRef} type="button" className="w-full" variant="outline" onClick={() => { setNotice(null); setConfirming(true); }}>Cancel subscription (demo)</Button>
       )}
       <p ref={statusRef} role="status" tabIndex={-1} className={notice ? 'mt-2 text-center text-sm text-emerald-700' : undefined}>{notice}</p>
     </div>
