@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
 export async function signUpFresh(page: Page): Promise<string> {
@@ -72,5 +72,48 @@ export function expectNoExpiryOrCvc(entries: readonly string[]): void {
   for (const entry of entries) {
     expect(entry, 'leaked the expiry').not.toMatch(/11\s*(\/|%2F)\s*34|\b1134\b/i);
     expect(entry, 'leaked the CVC').not.toMatch(/\b987\b/);
+  }
+}
+
+/** Resolves any CSS colour (rgb, oklch, ...) of an element to its [r, g, b, a] pixel via a 1x1 canvas. */
+async function backgroundPixel(locator: Locator): Promise<readonly number[]> {
+  return locator.evaluate((element) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('No 2d context');
+    ctx.fillStyle = getComputedStyle(element).backgroundColor;
+    ctx.fillRect(0, 0, 1, 1);
+    return Array.from(ctx.getImageData(0, 0, 1, 1).data);
+  });
+}
+
+const luminanceOf = ([r = 0, g = 0, b = 0]: readonly number[]): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+/** The space theme paints html dark; body must be transparent (or dark) so no white shows at the edges. */
+export async function expectSpaceTheme(page: Page): Promise<void> {
+  await expect(page.locator('.space-backdrop')).toHaveCount(1);
+  expect(luminanceOf(await backgroundPixel(page.locator('html')))).toBeLessThan(40);
+  const body = await backgroundPixel(page.locator('body'));
+  expect(body[3] === 0 || luminanceOf(body) < 40).toBe(true);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe('dark');
+}
+
+/** Light pages: no backdrop and an effectively white page background. */
+export async function expectLightTheme(page: Page): Promise<void> {
+  await expect(page.locator('.space-backdrop')).toHaveCount(0);
+  expect(luminanceOf(await backgroundPixel(page.locator('body')))).toBeGreaterThan(230);
+  // html is transparent here (the body background propagates to the canvas); it must not be dark.
+  const html = await backgroundPixel(page.locator('html'));
+  expect(html[3] === 0 || luminanceOf(html) > 230).toBe(true);
+}
+
+export async function expectLightPricingCards(page: Page): Promise<void> {
+  const cards = page.locator('ul > li > [data-slot="card"]');
+  await expect(cards).toHaveCount(2);
+  for (const card of await cards.all()) {
+    const pixel = await backgroundPixel(card);
+    expect(luminanceOf(pixel)).toBeGreaterThan(230);
   }
 }

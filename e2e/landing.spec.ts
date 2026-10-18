@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { expectSpaceTheme } from './helpers';
 
 test('landing explains the product, shows pricing and links to sign-up', async ({ page }) => {
   await page.goto('/');
@@ -29,6 +30,11 @@ test('landing renders the animated star field canvas', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByTestId('starfield')).toHaveCount(1);
   await expect(page.getByTestId('starfield')).toHaveAttribute('aria-hidden', 'true');
+});
+
+test('landing renders the space backdrop with a dark html and body background', async ({ page }) => {
+  await page.goto('/');
+  await expectSpaceTheme(page);
 });
 
 test('chat preview animation starts typing the first question', async ({ page }) => {
