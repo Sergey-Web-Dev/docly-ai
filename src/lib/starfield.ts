@@ -22,11 +22,11 @@ export const MIN_ALPHA = 0.35;
 export const MAX_ALPHA = 0.85;
 const HERO_CHANCE = 0.07;
 
-export const MIN_STARS = 120;
-export const MAX_STARS = 220;
+export const MIN_STARS = 160;
+export const MAX_STARS = 280;
 /** indigo, indigo (deep), violet, violet (deep), slate. */
 export const TONE_COUNT = 5;
-const PIXELS_PER_STAR = 9000;
+const PIXELS_PER_STAR = 6500;
 
 /** mulberry32: small seeded PRNG so star layouts are reproducible in tests. */
 export function createRng(seed: number): () => number {
@@ -57,7 +57,7 @@ export function generateStars(count: number, seed: number): readonly Star[] {
   return stars;
 }
 
-/** Star count for a viewport, 120-220 at full density; `density` scales it down (e.g. dashboard). */
+/** Star count for a viewport, 160-280 at full density; `density` scales it down (e.g. dashboard). */
 export function starCountForArea(width: number, height: number, density: number): number {
   const base = Math.min(MAX_STARS, Math.max(MIN_STARS, Math.round((width * height) / PIXELS_PER_STAR)));
   return Math.round(base * Math.min(1, Math.max(0, density)));

@@ -49,7 +49,7 @@ export function createFieldState(): FieldState {
 function drawGlow(ctx: CanvasRenderingContext2D, px: number, py: number, radius: number, rgb: readonly [number, number, number], alpha: number): void {
   const reach = radius * GLOW_RADIUS_FACTOR;
   const gradient = ctx.createRadialGradient(px, py, 0, px, py, reach);
-  gradient.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(alpha * 0.45).toFixed(3)})`);
+  gradient.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(alpha * 0.6).toFixed(3)})`);
   gradient.addColorStop(1, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
   ctx.globalAlpha = 1;
   ctx.fillStyle = gradient;
@@ -64,7 +64,7 @@ function drawStar(ctx: CanvasRenderingContext2D, star: Star, state: FieldState, 
   let px = wrapUnit((star.x * width + driftX + state.offsetX * star.z) / width) * width;
   let py = wrapUnit((star.y * height + driftX * 0.35 + state.offsetY * star.z) / height) * height;
 
-  const twinkle = 0.7 + 0.3 * Math.sin(time * 0.0015 * (0.6 + star.z) + star.phase);
+  const twinkle = 0.8 + 0.2 * Math.sin(time * 0.0015 * (0.6 + star.z) + star.phase);
   let alpha = star.alpha * twinkle;
   let radius = star.radius;
 

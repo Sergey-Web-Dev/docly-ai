@@ -54,9 +54,9 @@ describe('starCountForArea', () => {
     expect(starCountForArea(1920, 1080, 1)).toBeGreaterThan(starCountForArea(600, 800, 1));
   });
 
-  it('should stay between 120 and 220 at full density', () => {
-    expect(starCountForArea(100, 100, 1)).toBe(120);
-    expect(starCountForArea(8000, 6000, 1)).toBe(220);
+  it('should stay between 160 and 280 at full density', () => {
+    expect(starCountForArea(100, 100, 1)).toBe(160);
+    expect(starCountForArea(8000, 6000, 1)).toBe(280);
   });
 
   it('should reduce the count when density is lowered', () => {
