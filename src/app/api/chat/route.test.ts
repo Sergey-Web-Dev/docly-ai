@@ -26,7 +26,7 @@ async function json(response: Response): Promise<{ error: { code: string; messag
 describe('POST /api/chat', () => {
   beforeEach(() => {
     resolveChatAccess.mockReset().mockResolvedValue(target);
-    answerQuestion.mockReset().mockResolvedValue({ answer: 'A', isGrounded: true, usage: { used: 1, limit: 30 } });
+    answerQuestion.mockReset().mockResolvedValue({ answer: 'A', isGrounded: true, usage: { used: 1, limit: 30 }, sources: [{ documentId: 'd1', fileName: 'handbook.pdf' }] });
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -37,7 +37,7 @@ describe('POST /api/chat', () => {
   it('should return the answer body and pass the admin client, target and message through', async () => {
     const response = await POST(post(JSON.stringify({ botId: BOT_ID, message: '  hi  ' })));
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ answer: 'A', isGrounded: true, usage: { used: 1, limit: 30 } });
+    await expect(response.json()).resolves.toEqual({ answer: 'A', isGrounded: true, usage: { used: 1, limit: 30 }, sources: [{ documentId: 'd1', fileName: 'handbook.pdf' }] });
     expect(resolveChatAccess).toHaveBeenCalledWith(BOT_ID, expect.any(Headers));
     expect(answerQuestion).toHaveBeenCalledWith(admin, target, 'hi');
   });
