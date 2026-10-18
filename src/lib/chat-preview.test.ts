@@ -6,6 +6,7 @@ import {
   USER_CHAR_MS,
   getPreviewFrame,
   locateScenario,
+  msUntilNextChange,
   scenarioDurationMs,
   type ChatPreviewScenario,
 } from './chat-preview';
@@ -83,5 +84,32 @@ describe('locateScenario', () => {
   it('should loop back to the first scenario after the last one', () => {
     const total = CHAT_PREVIEW_SCENARIOS.reduce((sum, s) => sum + scenarioDurationMs(s), 0);
     expect(locateScenario(CHAT_PREVIEW_SCENARIOS, total + 5)).toEqual({ index: 0, elapsedMs: 5 });
+  });
+});
+
+describe('msUntilNextChange', () => {
+  const ONE = [SCENARIO];
+
+  it('should wait for the next typed character while the user bubble types', () => {
+    expect(msUntilNextChange(ONE, 10)).toBe(USER_CHAR_MS - 10);
+  });
+
+  it('should wait a full character at an exact boundary', () => {
+    expect(msUntilNextChange(ONE, USER_CHAR_MS * 3)).toBe(USER_CHAR_MS);
+  });
+
+  it('should sleep until the end of thinking', () => {
+    const typed = SCENARIO.question.length * USER_CHAR_MS;
+    expect(msUntilNextChange(ONE, typed + 500)).toBe(THINKING_MS - 500);
+  });
+
+  it('should wait for the next answer character while the answer types', () => {
+    const typed = SCENARIO.question.length * USER_CHAR_MS;
+    expect(msUntilNextChange(ONE, typed + THINKING_MS + 5)).toBe(ANSWER_CHAR_MS - 5);
+  });
+
+  it('should sleep until the next scenario while holding', () => {
+    const active = SCENARIO.question.length * USER_CHAR_MS + THINKING_MS + SCENARIO.answer.length * ANSWER_CHAR_MS;
+    expect(msUntilNextChange(ONE, active + 100)).toBe(scenarioDurationMs(SCENARIO) - active - 100);
   });
 });

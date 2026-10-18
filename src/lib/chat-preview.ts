@@ -20,7 +20,7 @@ const MIN_HOLD_MS = 2500;
 export const CHAT_PREVIEW_SCENARIOS: readonly ChatPreviewScenario[] = [
   {
     question: 'How many vacation days do new hires get?',
-    answer: 'New hires get 20 vacation days in their first year, per the employee handbook.',
+    answer: 'New hires get 20 vacation days per year, starting from day one.',
   },
   { question: 'Can I work remotely?', answer: 'Yes — remote work is allowed on Tuesdays and Thursdays.' },
   { question: "What's the support email?", answer: 'You can reach support at help@acme.test.' },
@@ -67,4 +67,25 @@ export function locateScenario(
     remaining -= duration;
   }
   return { index: 0, elapsedMs: 0 };
+}
+
+/**
+ * Milliseconds until the visible text next changes (the next character, the end of "thinking", or the next scenario),
+ * so a timer can sleep exactly that long instead of polling.
+ */
+export function msUntilNextChange(scenarios: readonly ChatPreviewScenario[], totalMs: number): number {
+  const { index, elapsedMs } = locateScenario(scenarios, totalMs);
+  const scenario = scenarios[index];
+  if (!scenario) return 1000;
+  const typedMs = scenario.question.length * USER_CHAR_MS;
+  const thinkingEnd = typedMs + THINKING_MS;
+  const answerEnd = thinkingEnd + scenario.answer.length * ANSWER_CHAR_MS;
+  const nextBoundary = (offset: number, step: number): number => offset + (Math.floor((elapsedMs - offset) / step) + 1) * step;
+
+  let next: number;
+  if (elapsedMs < typedMs) next = Math.min(typedMs, nextBoundary(0, USER_CHAR_MS));
+  else if (elapsedMs < thinkingEnd) next = thinkingEnd;
+  else if (elapsedMs < answerEnd) next = Math.min(answerEnd, nextBoundary(thinkingEnd, ANSWER_CHAR_MS));
+  else next = scenarioDurationMs(scenario);
+  return Math.max(1, Math.ceil(next - elapsedMs));
 }

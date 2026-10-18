@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore, type RefObject } from 'react';
+import { CHAT_PREVIEW_SCENARIOS, msUntilNextChange } from '@/lib/chat-preview';
 
-const TICK_MS = 33;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 function subscribeToReducedMotion(onChange: () => void): () => void {
@@ -24,11 +24,12 @@ export function usePrefersReducedMotion(): boolean {
 }
 
 /**
- * Elapsed animation time in ms. It only advances while the target element is on screen and the tab is
- * visible, and stops entirely under `prefers-reduced-motion`. Every timer and observer is cleaned up.
+ * Elapsed animation time in ms, or null until the clock has started. It only advances while the target element is
+ * on screen and the tab is visible, and never under `prefers-reduced-motion`. Instead of polling, one timeout sleeps
+ * until the next visible change (see msUntilNextChange). Every timer and observer is cleaned up.
  */
-export function usePreviewClock(targetRef: RefObject<HTMLElement | null>, isEnabled: boolean): number {
-  const [elapsedMs, setElapsedMs] = useState(0);
+export function usePreviewClock(targetRef: RefObject<HTMLElement | null>, isEnabled: boolean): number | null {
+  const [elapsedMs, setElapsedMs] = useState<number | null>(null);
 
   useEffect(() => {
     const target = targetRef.current;
@@ -39,21 +40,26 @@ export function usePreviewClock(targetRef: RefObject<HTMLElement | null>, isEnab
     let lastTick = 0;
     let elapsed = 0;
 
-    const tick = (): void => {
+    const schedule = (): void => {
+      timerId = window.setTimeout(tick, msUntilNextChange(CHAT_PREVIEW_SCENARIOS, elapsed));
+    };
+    function tick(): void {
       const now = performance.now();
       elapsed += now - lastTick;
       lastTick = now;
       setElapsedMs(elapsed);
-    };
+      schedule();
+    }
     const stop = (): void => {
-      window.clearInterval(timerId);
+      window.clearTimeout(timerId);
       timerId = 0;
     };
     const sync = (): void => {
       const shouldRun = isOnScreen && !document.hidden;
       if (shouldRun && timerId === 0) {
         lastTick = performance.now();
-        timerId = window.setInterval(tick, TICK_MS);
+        setElapsedMs(elapsed);
+        schedule();
       } else if (!shouldRun && timerId !== 0) {
         stop();
       }

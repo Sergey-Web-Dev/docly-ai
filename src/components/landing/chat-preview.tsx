@@ -36,9 +36,10 @@ export function ChatPreview(): React.ReactElement {
   const isReduced = usePrefersReducedMotion();
   const totalMs = usePreviewClock(containerRef, !isReduced);
 
-  const located = locateScenario(CHAT_PREVIEW_SCENARIOS, totalMs);
+  // Server render, first paint and reduced motion all show the static first exchange until the clock starts.
+  const located = locateScenario(CHAT_PREVIEW_SCENARIOS, totalMs ?? 0);
   const scenario = CHAT_PREVIEW_SCENARIOS[located.index] ?? FIRST_SCENARIO;
-  const frame = isReduced ? STATIC_FRAME : getPreviewFrame(scenario, located.elapsedMs);
+  const frame = isReduced || totalMs === null ? STATIC_FRAME : getPreviewFrame(scenario, located.elapsedMs);
 
   const isUserVisible = frame.userText.length > 0 || frame.phase === 'user-typing';
   const isAnswerVisible = frame.phase === 'thinking' || frame.phase === 'answer-typing' || frame.phase === 'holding';

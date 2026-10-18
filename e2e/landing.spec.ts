@@ -33,7 +33,11 @@ test('landing renders the animated star field canvas', async ({ page }) => {
 
 test('chat preview animation starts typing the first question', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByTestId('chat-preview')).toContainText('How many vacation', { timeout: 5_000 });
+  const preview = page.getByTestId('chat-preview');
+  await preview.scrollIntoViewIfNeeded();
+  // The static first exchange is shown first; once the clock starts the answer is cleared and typed again.
+  await expect(preview).not.toContainText('starting from day one', { timeout: 5_000 });
+  await expect(preview).toContainText('Searching employee-handbook.pdf', { timeout: 8_000 });
 });
 
 test.describe('reduced motion', () => {
@@ -43,7 +47,7 @@ test.describe('reduced motion', () => {
     await page.goto('/');
     const preview = page.getByTestId('chat-preview');
     await expect(preview).toContainText('How many vacation days do new hires get?');
-    await expect(preview).toContainText('New hires get 20 vacation days in their first year, per the employee handbook.');
+    await expect(preview).toContainText('New hires get 20 vacation days per year, starting from day one.');
   });
 });
 
