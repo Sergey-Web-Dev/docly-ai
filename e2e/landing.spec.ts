@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectSpaceTheme } from './helpers';
+import { expectLightTheme, expectSky, expectSpaceTheme } from './helpers';
 
 test('landing explains the product, shows pricing and links to sign-up', async ({ page }) => {
   await page.goto('/');
@@ -35,6 +35,13 @@ test('landing renders the animated star field canvas', async ({ page }) => {
 test('landing renders the space backdrop with a dark html and body background', async ({ page }) => {
   await page.goto('/');
   await expectSpaceTheme(page);
+  await expectSky(page, 'space');
+});
+
+test('an unknown route keeps the light star field (no space theme)', async ({ page }) => {
+  await page.goto('/this-route-does-not-exist');
+  await expectLightTheme(page);
+  await expect(page.getByTestId('starfield')).toHaveAttribute('data-variant', 'light');
 });
 
 test('chat preview animation starts typing the first question', async ({ page }) => {
@@ -57,9 +64,16 @@ test.describe('reduced motion', () => {
   });
 });
 
-// Rendering the embed page needs the full app env (Supabase secret): validated in the main checkout.
-test('embed page has no star field canvas', async ({ page }) => {
+// A non-UUID id renders the unavailable card without touching the database, so this runs without the Supabase secret.
+test('embed page uses the galaxy sky inside the iframe', async ({ page }) => {
+  await page.goto('/embed/not-a-bot-id');
+  await expect(page.locator('main')).toBeVisible();
+  await expectSky(page, 'galaxy');
+});
+
+// Rendering a real bot lookup needs the full app env (Supabase secret): validated in the main checkout.
+test('embed page for an unknown bot also uses the galaxy sky', async ({ page }) => {
   await page.goto('/embed/00000000-0000-4000-8000-000000000000');
   await expect(page.locator('main')).toBeVisible();
-  await expect(page.getByTestId('starfield')).toHaveCount(0);
+  await expectSky(page, 'galaxy');
 });

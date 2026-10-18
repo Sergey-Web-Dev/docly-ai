@@ -6,6 +6,7 @@ import { AppError } from '@/lib/errors';
 import type { Plan } from '@/lib/plans';
 import { BLOCKED_ANSWER, buildPrompt, buildSystemInstruction, createNonce, isNotFoundAnswer, NOT_FOUND_ANSWER } from '@/lib/prompt';
 import { CHAT_DEADLINE_MS, MATCH_COUNT, MIN_SIMILARITY } from '@/lib/rag-config';
+import { type AnswerSource, extractSources, selectDocumentIds, toAnswerSources } from '@/lib/sources';
 import { getMonthlyUsage, refundMessage, reserveMessage } from '@/lib/usage';
 
 export interface ChatTarget {
@@ -19,6 +20,7 @@ export interface ChatAnswer {
   readonly answer: string;
   readonly isGrounded: boolean;
   readonly usage: { readonly used: number; readonly limit: number } | null; // null in public mode
+  readonly sources: readonly AnswerSource[]; // owner mode: 0..3 unique documents; public mode and not-found/blocked answers: always []
 }
 
 const PROVIDER_ERROR = 'The AI service is unavailable right now. Please try again in a minute.';
@@ -27,7 +29,7 @@ const PUBLIC_UNAVAILABLE = 'This assistant is temporarily unavailable. Please tr
 type Outcome =
   | { readonly kind: 'no-match' }
   | { readonly kind: 'blocked'; readonly finishReason: string | undefined }
-  | { readonly kind: 'answer'; readonly text: string; readonly finishReason: string | undefined };
+  | { readonly kind: 'answer'; readonly text: string; readonly sources: readonly AnswerSource[]; readonly finishReason: string | undefined };
 
 export async function answerQuestion(admin: SupabaseClient<Database>, target: ChatTarget, question: string): Promise<ChatAnswer> {
   const deadline = Date.now() + CHAT_DEADLINE_MS;
@@ -52,7 +54,7 @@ export async function answerQuestion(admin: SupabaseClient<Database>, target: Ch
 
   let outcome: Outcome;
   try {
-    outcome = await retrieveAndGenerate(admin, target.chatbotId, question, deadline);
+    outcome = await retrieveAndGenerate(admin, target.chatbotId, question, deadline, isOwner);
   } catch (error) {
     await refundMessage(admin, target.ownerId, month);
     if (error instanceof AppError) throw error;
@@ -67,10 +69,11 @@ export async function answerQuestion(admin: SupabaseClient<Database>, target: Ch
     answer: outcome.kind === 'answer' ? outcome.text : outcome.kind === 'blocked' ? BLOCKED_ANSWER : NOT_FOUND_ANSWER,
     isGrounded: outcome.kind === 'answer' && !isNotFoundAnswer(outcome.text),
     usage: isOwner ? await readUsage(admin, target.ownerId, limit) : null,
+    sources: outcome.kind === 'answer' ? outcome.sources : [],
   };
 }
 
-async function retrieveAndGenerate(admin: SupabaseClient<Database>, chatbotId: string, question: string, deadline: number): Promise<Outcome> {
+async function retrieveAndGenerate(admin: SupabaseClient<Database>, chatbotId: string, question: string, deadline: number, isOwner: boolean): Promise<Outcome> {
   const vector = await embedQuery(question);
   const { data, error } = await admin.rpc('match_chunks', {
     p_chatbot_id: chatbotId,
@@ -80,11 +83,22 @@ async function retrieveAndGenerate(admin: SupabaseClient<Database>, chatbotId: s
   });
   if (error) throw error;
   if (data.length === 0) return { kind: 'no-match' };
+  const chunks = data.map((row) => ({ content: row.content, documentId: row.document_id, similarity: row.similarity }));
   const nonce = createNonce();
-  const result = await generateAnswer({ systemInstruction: buildSystemInstruction(nonce), prompt: buildPrompt(question, data, nonce) }, deadline);
-  return result.kind === 'blocked'
-    ? { kind: 'blocked', finishReason: result.finishReason }
-    : { kind: 'answer', text: result.text, finishReason: result.finishReason };
+  const result = await generateAnswer({ systemInstruction: buildSystemInstruction(nonce), prompt: buildPrompt(question, chunks, nonce) }, deadline);
+  if (result.kind === 'blocked') return { kind: 'blocked', finishReason: result.finishReason };
+  // The SOURCES line is always removed. File names never reach the model: they are loaded after generation, owner mode only.
+  const { answer, indices } = extractSources(result.text, chunks.length);
+  if (answer === '') return { kind: 'no-match' };
+  const documentIds = isOwner && !isNotFoundAnswer(answer) ? selectDocumentIds(indices, chunks) : [];
+  const sources = documentIds.length > 0 ? toAnswerSources(documentIds, await loadFileNames(admin, chatbotId, documentIds)) : [];
+  return { kind: 'answer', text: answer, sources, finishReason: result.finishReason };
+}
+
+async function loadFileNames(admin: SupabaseClient<Database>, chatbotId: string, documentIds: readonly string[]): Promise<Map<string, string>> {
+  const { data, error } = await admin.from('documents').select('id, file_name').eq('chatbot_id', chatbotId).in('id', [...new Set(documentIds)]);
+  if (error) throw error;
+  return new Map(data.map((row) => [row.id, row.file_name]));
 }
 
 async function readUsage(admin: SupabaseClient<Database>, ownerId: string, limit: number): Promise<{ used: number; limit: number } | null> {

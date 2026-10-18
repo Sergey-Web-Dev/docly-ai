@@ -188,13 +188,31 @@ test('widget on another origin, unpublish, demo billing and public quota', async
 
     const frame = visitor.frameLocator('iframe[title="Chat assistant"]');
     await expect(frame.getByText('Hi! Ask me about Acme.')).toBeVisible();
+    // The real public /api/chat response must never carry sources or file names.
+    const chatResponse = visitor.waitForResponse((response) => response.url().includes('/api/chat') && response.request().method() === 'POST', { timeout: ANSWER_TIMEOUT + 60_000 });
     await askInFrame(frame, 'How many vacation days do new hires get?');
+    const body = (await (await chatResponse).json()) as { sources?: unknown };
+    expect(body.sources).toEqual([]);
+    expect(JSON.stringify(body)).not.toContain('handbook.txt');
     const assistant = frame.locator('li[data-role="assistant"]');
     await expect(assistant).toHaveCount(2, { timeout: ANSWER_TIMEOUT });
     await expect(frame.getByTestId('typing-indicator')).toHaveCount(0, { timeout: ANSWER_TIMEOUT });
     const answer = (await assistant.last().innerText()).trim();
     console.log(`[widget-e2e] Q: How many vacation days do new hires get? -> A: ${answer}`);
     expect(answer).toContain('20');
+    // Public widget: never any file names or source chips, and the galaxy sky is behind the chat.
+    await expect(frame.getByTestId('chat-sources')).toHaveCount(0);
+    expect(await frame.locator('body').innerText()).not.toContain('handbook.txt');
+    await expect(frame.locator('[data-testid="starfield"]')).toHaveAttribute('data-variant', 'galaxy');
+
+    // Asking for the file name must not leak it: the model never sees it.
+    await askInFrame(frame, 'Which file is this information from?');
+    await expect(assistant).toHaveCount(3, { timeout: ANSWER_TIMEOUT });
+    await expect(frame.getByTestId('typing-indicator')).toHaveCount(0, { timeout: ANSWER_TIMEOUT });
+    const fileAnswer = (await assistant.last().innerText()).trim();
+    console.log(`[widget-e2e] Q: Which file is this information from? -> A: ${fileAnswer}`);
+    expect(fileAnswer.toLowerCase()).not.toContain('handbook');
+    expect(fileAnswer.toLowerCase()).not.toContain('.txt');
 
     await frame.getByRole('button', { name: 'Close chat' }).click();
     await expect(panel).toBeHidden();

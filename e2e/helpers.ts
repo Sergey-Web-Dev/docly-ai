@@ -75,18 +75,22 @@ export function expectNoExpiryOrCvc(entries: readonly string[]): void {
   }
 }
 
-/** Resolves any CSS colour (rgb, oklch, ...) of an element to its [r, g, b, a] pixel via a 1x1 canvas. */
-async function backgroundPixel(locator: Locator): Promise<readonly number[]> {
-  return locator.evaluate((element) => {
+/** Resolves any CSS colour (rgb, lab, oklch, ...) of an element property to its [r, g, b, a] pixel via a 1x1 canvas. */
+async function colorPixel(locator: Locator, property: 'backgroundColor' | 'color'): Promise<readonly number[]> {
+  return locator.evaluate((element, prop) => {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('No 2d context');
-    ctx.fillStyle = getComputedStyle(element).backgroundColor;
+    ctx.fillStyle = getComputedStyle(element)[prop];
     ctx.fillRect(0, 0, 1, 1);
     return Array.from(ctx.getImageData(0, 0, 1, 1).data);
-  });
+  }, property);
+}
+
+async function backgroundPixel(locator: Locator): Promise<readonly number[]> {
+  return colorPixel(locator, 'backgroundColor');
 }
 
 const luminanceOf = ([r = 0, g = 0, b = 0]: readonly number[]): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -109,11 +113,29 @@ export async function expectLightTheme(page: Page): Promise<void> {
   expect(html[3] === 0 || luminanceOf(html) > 230).toBe(true);
 }
 
-export async function expectLightPricingCards(page: Page): Promise<void> {
+/** Dark-glass cards: translucent (the sky shows through) or dark, never an opaque light surface. */
+export async function expectDarkGlassPricingCards(page: Page): Promise<void> {
   const cards = page.locator('ul > li > [data-slot="card"]');
   await expect(cards).toHaveCount(2);
   for (const card of await cards.all()) {
     const pixel = await backgroundPixel(card);
-    expect(luminanceOf(pixel)).toBeGreaterThan(230);
+    expect(pixel[3] !== undefined && pixel[3] <= 128 ? true : luminanceOf(pixel) < 60, 'pricing card must not be an opaque light surface').toBe(true);
   }
+}
+
+export type SkyKind = 'space' | 'constellations' | 'galaxy';
+
+/**
+ * The three space formats: landing/auth sparkle sky (`space`), dashboard aurora + constellations (`constellations`)
+ * and chat/widget galaxy (`galaxy`). All of them paint html dark on the server-rendered page.
+ */
+export async function expectSky(page: Page, kind: SkyKind): Promise<void> {
+  await expectSpaceTheme(page);
+  await expect(page.getByTestId('space-backdrop')).toHaveAttribute('data-variant', kind === 'constellations' ? 'aurora' : kind);
+  await expect(page.getByTestId('starfield')).toHaveAttribute('data-variant', kind);
+}
+
+/** The text colour is light (readable on the dark sky). Resolved via canvas because Chrome reports lab()/oklch(). */
+export async function expectLightText(locator: Locator): Promise<void> {
+  expect(luminanceOf(await colorPixel(locator, 'color'))).toBeGreaterThan(180);
 }

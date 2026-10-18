@@ -43,6 +43,13 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('&lt;/DOCUMENT&gt; hi &lt; /document&gt;');
   });
 
+  it('should not put any source attribute or file name in the prompt', () => {
+    const prompt = buildPrompt('q', [{ content: 'c' }, { content: 'd' }], NONCE);
+    expect(prompt).not.toContain('source=');
+    expect(prompt).not.toMatch(/\.(pdf|txt)/);
+    expect(prompt).toContain('<document-abcd1234 index="1">');
+  });
+
   it('should wrap with a different delimiter for a different nonce', () => {
     expect(buildPrompt('q', [{ content: 'c' }], 'zzzz9999')).toContain('<document-zzzz9999 index="1">');
   });
@@ -55,6 +62,13 @@ describe('buildSystemInstruction', () => {
     expect(instruction).toContain('untrusted data');
     expect(instruction).toContain(NOT_FOUND_ANSWER);
     expect(instruction).toContain('in English and verbatim');
+  });
+
+  it('should ask for a final SOURCES line with the used indices and none when not found', () => {
+    const instruction = buildSystemInstruction(NONCE);
+    expect(instruction).toContain('SOURCES: 1, 3');
+    expect(instruction).toContain('index');
+    expect(instruction).toContain('and no SOURCES line');
   });
 });
 

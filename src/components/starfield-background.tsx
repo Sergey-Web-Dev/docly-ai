@@ -2,30 +2,25 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
-import { SpaceBackdrop } from '@/components/space-backdrop';
-import { createSpaceScene, drawSpace, type SpaceScene } from '@/lib/space-draw';
-import { createFieldState, drawField, type FieldState } from '@/lib/starfield-draw';
-import { clampOffset, easeToward, generateStars, starCountForArea, type Star } from '@/lib/starfield';
+import { SpaceBackdrop, type BackdropVariant } from '@/components/space-backdrop';
+import { createSkyScene, type SkyVariant } from '@/lib/sky-scene';
+import { createFieldState, type FieldState } from '@/lib/starfield-draw';
+import { clampOffset, easeToward } from '@/lib/starfield';
 
-const STAR_SEED = 20260611;
-const SPACE_SEED = 20261018;
 const SPACE_PATHS: readonly string[] = ['/', '/login', '/signup'];
 const MAX_PARALLAX_PX = 28;
 const IDLE_MS = 2000;
 const MAX_DPR = 2;
-const DASHBOARD_DENSITY = 0.55;
-const DASHBOARD_OPACITY = 0.8;
 const THROTTLED_FRAME_MS = 33;
 const LOW_CORE_COUNT = 4;
 const CHECKOUT_PATH = '/dashboard/billing/checkout';
+const CHAT_PATH = '/dashboard/chat';
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-type StarfieldVariant = 'light' | 'space';
-
 interface StarfieldCanvasProps {
-  readonly variant: StarfieldVariant;
+  readonly variant: SkyVariant;
   readonly density: number;
-  /** Only the light variant uses this; the space variant has its own per-star brightness. */
+  /** Only the light variant uses this; the other variants have their own per-star brightness. */
   readonly opacity: number;
   /** Draw one still frame and run no animation loop (checkout page). */
   readonly isPaused: boolean;
@@ -52,9 +47,7 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
     // One run per mode. Switching mode (the reduced-motion setting changed at runtime) tears this down and starts again.
     const run = (isStatic: boolean): (() => void) => {
       const state: FieldState = createFieldState();
-      let stars: readonly Star[] = [];
-      let scene: SpaceScene | null = null;
-      let drawFrame: (time: number) => void = () => undefined;
+      const scene = createSkyScene(ctx, state, { variant, density: effectiveDensity, opacity, isStatic });
       let frameId = 0;
       let lastTime = 0;
       let lastDrawn = 0;
@@ -69,15 +62,8 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
         canvas.width = Math.round(state.width * dpr);
         canvas.height = Math.round(state.height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        if (variant === 'space') {
-          const next = createSpaceScene(state.width, state.height, effectiveDensity, dpr, SPACE_SEED, scene);
-          scene = next;
-          drawFrame = (time) => drawSpace(ctx, next, state, time, !isStatic);
-        } else {
-          stars = generateStars(starCountForArea(state.width, state.height, effectiveDensity), STAR_SEED);
-          drawFrame = (time) => drawField(ctx, stars, state, time, opacity);
-        }
-        if (isStatic) drawFrame(0);
+        scene.resize(dpr);
+        if (isStatic) scene.draw(0);
       };
       const handleResize = (): void => {
         window.clearTimeout(resizeTimer);
@@ -111,7 +97,7 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
         const decay = Math.exp(-dt / 120);
         state.velocityX *= decay;
         state.velocityY *= decay;
-        drawFrame(time);
+        scene.draw(time);
       };
       const start = (): void => {
         if (frameId === 0) {
@@ -173,31 +159,37 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
     };
   }, [variant, density, opacity, isPaused]);
 
-  return <canvas ref={canvasRef} aria-hidden="true" data-testid="starfield" className="pointer-events-none fixed inset-0 -z-10 h-full w-full" />;
+  return <canvas ref={canvasRef} aria-hidden="true" data-testid="starfield" data-variant={variant} className="pointer-events-none fixed inset-0 -z-10 h-full w-full" />;
 }
 
-/** Fixed full-viewport star field behind the whole app. Never rendered inside the embeddable widget. */
-export function StarfieldBackground(): React.ReactElement | null {
-  const pathname = usePathname();
-  const isEmbed = pathname.startsWith('/embed');
-  const isSpace = SPACE_PATHS.includes(pathname);
+interface SkyChoice {
+  readonly variant: SkyVariant;
+  readonly backdrop: BackdropVariant | null;
+  readonly isPaused: boolean;
+  readonly density: number;
+}
 
-  if (isEmbed) return null;
-  if (isSpace) {
-    return (
-      <>
-        <SpaceBackdrop />
-        <StarfieldCanvas variant="space" density={1} opacity={1} isPaused={false} />
-      </>
-    );
-  }
-  const isDashboard = pathname.startsWith('/dashboard');
+const EMBED_DENSITY = 0.5;
+
+function chooseSky(pathname: string): SkyChoice {
+  if (SPACE_PATHS.includes(pathname)) return { variant: 'space', backdrop: 'space', isPaused: false, density: 1 };
+  // Chat (playground and the embeddable widget) is calm and readable: a slowly rotating galaxy.
+  // The widget iframe is small and sits on customers' pages: half the particles keep it light.
+  if (pathname.startsWith('/embed')) return { variant: 'galaxy', backdrop: 'galaxy', isPaused: false, density: EMBED_DENSITY };
+  if (pathname === CHAT_PATH || pathname.startsWith(`${CHAT_PATH}/`)) return { variant: 'galaxy', backdrop: 'galaxy', isPaused: false, density: 1 };
+  // The rest of the dashboard, billing and checkout: aurora and cursor-linked constellations. Checkout holds still while typing.
+  if (pathname.startsWith('/dashboard')) return { variant: 'constellations', backdrop: 'aurora', isPaused: pathname.startsWith(CHECKOUT_PATH), density: 1 };
+  return { variant: 'light', backdrop: null, isPaused: false, density: 1 };
+}
+
+/** Fixed full-viewport sky behind the whole app: one of three space formats, or the light field elsewhere. */
+export function StarfieldBackground(): React.ReactElement {
+  const pathname = usePathname();
+  const { variant, backdrop, isPaused, density } = chooseSky(pathname);
   return (
-    <StarfieldCanvas
-      variant="light"
-      density={isDashboard ? DASHBOARD_DENSITY : 1}
-      opacity={isDashboard ? DASHBOARD_OPACITY : 1}
-      isPaused={pathname.startsWith(CHECKOUT_PATH)}
-    />
+    <>
+      {backdrop ? <SpaceBackdrop variant={backdrop} isPaused={isPaused} /> : null}
+      <StarfieldCanvas variant={variant} density={density} opacity={1} isPaused={isPaused} />
+    </>
   );
 }

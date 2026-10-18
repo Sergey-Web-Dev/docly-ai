@@ -18,7 +18,7 @@ export default async function BillingPage(): Promise<React.ReactElement> {
         <p className="text-sm text-muted-foreground">You are on the {summary.plan.name} plan.</p>
       </div>
 
-      <div role="note" className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+      <div role="note" className="flex items-start gap-2 rounded-lg border border-indigo-300/30 bg-indigo-400/10 p-3 text-sm text-indigo-100">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
         <p>Billing is simulated for this demo. Upgrading uses a demo checkout that only accepts Stripe test cards; no real card is ever needed and no money is charged.</p>
       </div>
@@ -40,19 +40,19 @@ export default async function BillingPage(): Promise<React.ReactElement> {
             </div>
           </dl>
           {summary.isOverDocumentLimit ? (
-            <p role="status" data-testid="billing-over-limit" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p role="status" data-testid="billing-over-limit" className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-sm text-amber-100">
               You have {summary.documents.used} {summary.documents.used === 1 ? 'document' : 'documents'}; the {summary.plan.name} plan allows {summary.documents.limit}. Existing documents keep working, but new uploads are blocked until you delete {excess} {excess === 1 ? 'document' : 'documents'}.
             </p>
           ) : null}
           {messagesOver ? (
-            <p role="status" data-testid="billing-messages-over" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p role="status" data-testid="billing-messages-over" className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-sm text-amber-100">
               You have used {summary.messages.used} messages this month; the {summary.plan.name} plan includes {summary.messages.limit}. New messages are blocked until next month or until you upgrade.
             </p>
           ) : null}
         </CardContent>
       </Card>
 
-      <PricingCards renderAction={(plan) => <PlanActions plan={plan} currentPlanId={summary.plan.id} />} />
+      <PricingCards tone="dark" renderAction={(plan) => <PlanActions plan={plan} currentPlanId={summary.plan.id} />} />
     </div>
   );
 }

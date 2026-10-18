@@ -14,16 +14,16 @@ export function CheckoutField({ id, label, error, adornment, className, ...props
   const errorId = `${id}-error`;
   return (
     <div className={className}>
-      <Label htmlFor={id} className="mb-1.5 text-zinc-800">{label}</Label>
+      <Label htmlFor={id} className="mb-1.5 text-zinc-200">{label}</Label>
       <div className="relative">
         <Input
           id={id}
-          className="h-10 bg-white pr-12 text-base"
+          className="h-10 pr-12 text-base"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           {...props}
         />
-        {adornment ? <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-zinc-500">{adornment}</span> : null}
+        {adornment ? <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-zinc-300">{adornment}</span> : null}
       </div>
       {error ? <p id={errorId} className="mt-1.5 text-sm text-destructive">{error}</p> : null}
     </div>

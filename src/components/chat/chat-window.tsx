@@ -1,9 +1,10 @@
 'use client';
 
-import { Loader2, SendHorizontal } from 'lucide-react';
+import { SendHorizontal } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { parseSources } from '@/lib/chat-sources';
 import { MAX_MESSAGE_CHARS } from '@/lib/rag-config';
 import { cn } from '@/lib/utils';
 import { ChatMessage, type ChatMessageData } from './chat-message';
@@ -25,6 +26,8 @@ interface ApiAnswer {
   readonly answer: string;
   readonly isGrounded: boolean;
   readonly usage: { readonly used: number; readonly limit: number } | null;
+  /** Owner mode: documents the answer came from. Absent from older backends, which means none. */
+  readonly sources?: unknown;
 }
 
 function subscribeNever(): () => void {
@@ -69,7 +72,8 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage,
       });
       if (response.ok) {
         const body = (await response.json()) as ApiAnswer;
-        setMessages((current) => [...current, { id: nextId(), role: 'assistant', content: body.answer, kind: body.isGrounded ? 'normal' : 'muted' }]);
+        const sources = mode === 'owner' && body.isGrounded ? parseSources(body.sources) : [];
+        setMessages((current) => [...current, { id: nextId(), role: 'assistant', content: body.answer, kind: body.isGrounded ? 'normal' : 'muted', sources }]);
         if (body.usage) setUsage(body.usage);
       } else {
         const body = (await response.json().catch(() => ({}))) as ApiError;
@@ -117,13 +121,13 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage,
   const canSend = ready && !pending && input.trim().length > 0 && !tooLong;
 
   return (
-    <section aria-label={`Chat with ${botName}`} className={cn('flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10', className)}>
+    <section aria-label={`Chat with ${botName}`} className={cn('flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[rgb(8_11_29/0.6)] text-zinc-100 shadow-[0_0_90px_-34px_rgba(99,102,241,0.75)] backdrop-blur-md', className)}>
       {mode === 'owner' && usage ? (
-        <p data-testid="chat-usage" className="border-b px-4 py-2 text-xs text-muted-foreground">
+        <p data-testid="chat-usage" className="border-b border-white/10 px-4 py-2 text-xs text-zinc-300">
           {usage.used} / {usage.limit} messages this month
         </p>
       ) : null}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin]">
         <ul aria-live="polite" aria-label="Conversation" className="space-y-3">
           {messages.map((message) => (
             <ChatMessage
@@ -136,8 +140,11 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage,
           ))}
           {pending ? (
             <li className="flex justify-start" data-testid="typing-indicator">
-              <div className="flex items-center gap-2 rounded-2xl rounded-bl-md bg-muted px-3.5 py-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+              <div className="flex items-center gap-2.5 rounded-2xl rounded-bl-md border border-white/12 bg-[rgb(14_17_42/0.78)] px-3.5 py-2 text-sm text-zinc-300">
+                <span aria-hidden="true" className="relative flex size-4 items-center justify-center">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-400/50 motion-reduce:animate-none" />
+                  <span className="relative inline-flex size-2.5 animate-pulse rounded-full bg-gradient-to-br from-indigo-200 to-violet-400 shadow-[0_0_12px_3px_rgba(129,140,248,0.75)] motion-reduce:animate-none" />
+                </span>
                 <span>Thinking…</span>
               </div>
             </li>
@@ -147,7 +154,7 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage,
       </div>
       <form
         data-ready={ready ? 'true' : undefined}
-        className="space-y-1 border-t p-3"
+        className="space-y-1 border-t border-white/10 p-3"
         onSubmit={(event) => {
           event.preventDefault();
           submit();
@@ -167,15 +174,15 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage,
               setValidation(null);
             }}
             onKeyDown={handleKeyDown}
-            className="max-h-32 min-h-10 resize-none"
+            className="max-h-32 min-h-10 resize-none border-white/40 bg-white/[0.05] text-base text-zinc-100 placeholder:text-zinc-400 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/40 aria-invalid:border-red-300 aria-invalid:ring-red-300/30 md:text-sm"
           />
-          <Button type="submit" disabled={!canSend} aria-label="Send" className="h-10 px-3">
+          <Button type="submit" disabled={!canSend} aria-label="Send" className="h-10 bg-gradient-to-br from-indigo-600 to-violet-600 px-3 text-white shadow-[0_0_24px_-6px_rgba(129,140,248,0.9)] hover:brightness-110 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/60 disabled:opacity-40 disabled:shadow-none">
             <SendHorizontal className="size-4" aria-hidden />
           </Button>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span role={tooLong || validation ? 'alert' : undefined} className="text-destructive">{tooLong ? `Questions can be up to ${MAX_MESSAGE_CHARS} characters.` : validation}</span>
-          <span data-testid="char-counter" className={tooLong ? 'text-destructive' : 'text-muted-foreground'}>{input.length} / {MAX_MESSAGE_CHARS}</span>
+          <span role={tooLong || validation ? 'alert' : undefined} className="text-red-300">{tooLong ? `Questions can be up to ${MAX_MESSAGE_CHARS} characters.` : validation}</span>
+          <span data-testid="char-counter" className={tooLong ? 'text-red-300' : 'text-zinc-400'}>{input.length} / {MAX_MESSAGE_CHARS}</span>
         </div>
       </form>
     </section>

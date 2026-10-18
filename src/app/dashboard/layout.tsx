@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { requireUser } from '@/lib/auth/require-user';
 import { getPlan } from '@/lib/plans';
 
+const NAV_FOCUS = 'rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70';
+
 export default async function DashboardLayout({ children }: { readonly children: React.ReactNode }): Promise<React.ReactElement> {
   const { user, supabase } = await requireUser();
 
@@ -13,16 +15,19 @@ export default async function DashboardLayout({ children }: { readonly children:
   const plan = getPlan(profile?.plan);
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b bg-background/80 backdrop-blur">
+    <div className="space-ui min-h-dvh">
+      <header className="border-b border-white/10 bg-[#05070f]/55 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
           <nav aria-label="Main" className="flex items-center gap-4">
-            <Link href="/dashboard" className="font-semibold">Docly AI</Link>
-            <Link href="/dashboard/chat" className="text-sm text-muted-foreground hover:text-foreground">Chat</Link>
-            <Link href="/dashboard/billing" className="text-sm text-muted-foreground hover:text-foreground">Plan</Link>
+            <Link href="/dashboard" className={`${NAV_FOCUS} flex items-center gap-2 font-semibold text-white`}>
+              <span aria-hidden="true" className="size-2.5 rounded-full bg-gradient-to-br from-indigo-300 to-violet-400 shadow-[0_0_12px_2px_rgba(129,140,248,0.7)]" />
+              Docly AI
+            </Link>
+            <Link href="/dashboard/chat" className={`${NAV_FOCUS} text-sm text-muted-foreground hover:text-white`}>Chat</Link>
+            <Link href="/dashboard/billing" className={`${NAV_FOCUS} text-sm text-muted-foreground hover:text-white`}>Plan</Link>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/dashboard/billing"><Badge variant="secondary" data-testid="plan-badge">{plan.name} plan</Badge></Link>
+            <Link href="/dashboard/billing" className={`${NAV_FOCUS} rounded-full`}><Badge variant="secondary" data-testid="plan-badge">{plan.name} plan</Badge></Link>
             <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
             <form action={signOut}><Button variant="ghost" size="sm" type="submit">Sign out</Button></form>
           </div>

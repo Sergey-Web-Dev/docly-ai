@@ -25,7 +25,7 @@ export default async function ChatPlaygroundPage(): Promise<React.ReactElement> 
         <p className="text-sm text-muted-foreground">Test your bot</p>
       </div>
       {hasReadyDocument ? null : (
-        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed bg-background p-3 text-sm">
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-white/25 bg-white/5 p-3 text-sm backdrop-blur-xl">
           <span>Upload at least one document to get answers</span>
           <Link href="/dashboard" className={buttonVariants({ variant: 'outline', size: 'sm' })}>Go to documents</Link>
         </div>

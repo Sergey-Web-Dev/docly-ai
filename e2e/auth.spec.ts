@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectLightPricingCards, expectLightTheme, expectSpaceTheme } from './helpers';
+import { expectDarkGlassPricingCards, expectLightText, expectSky, expectSpaceTheme } from './helpers';
 
 test('owner signs up, stays signed in after refresh, signs out', async ({ page }, testInfo) => {
   const email = `e2e-${testInfo.project.name}-${Date.now()}@example.com`;
@@ -11,12 +11,13 @@ test('owner signs up, stays signed in after refresh, signs out', async ({ page }
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
   await expect(page.getByText('Create your bot')).toBeVisible();
-  // Client-side navigation away from /signup: the space theme must be gone, not stuck on the dashboard.
-  await expectLightTheme(page);
+  // Client-side navigation away from /signup: the dashboard gets its own format (aurora + constellations), not the landing sparkle sky.
+  await expectSky(page, 'constellations');
+  await expectLightText(page.getByRole('heading', { name: 'Create your bot' }));
 
   await page.goto('/dashboard/billing');
-  await expectLightTheme(page);
-  await expectLightPricingCards(page);
+  await expectSky(page, 'constellations');
+  await expectDarkGlassPricingCards(page);
   await page.goto('/dashboard');
 
   await page.reload();
