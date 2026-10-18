@@ -2,18 +2,18 @@
 
 Your docs. Instant answers. Upload company documents (PDF or TXT), ask questions in a chat, and embed the same assistant on any website with one `<script>` tag.
 
-- **Live app:** `<APP_URL>`
-- **Demo site with the widget embedded (different origin):** `<DEMO_URL>`
+- **Live app:** https://docly-ai-ruddy.vercel.app
+- **Demo site with the widget embedded (different origin):** https://docly-ai-demo-site.vercel.app
 - Walkthrough with screenshots: [`docs/walkthrough.md`](docs/walkthrough.md)
 
 ## Demo journey
 
-1. Open `<APP_URL>` and sign up with email and password (the account is signed in immediately).
+1. Open https://docly-ai-ruddy.vercel.app and sign up with email and password (the account is signed in immediately).
 2. Create your bot (name and welcome message).
 3. Upload a PDF or TXT file and wait for the status **Ready**.
 4. Ask a question in the dashboard chat. Answers come only from your documents; anything else gets "I don't know based on these documents."
 5. Switch **Published** on and copy the embed snippet.
-6. Open the demo site with your bot: `<DEMO_URL>/?app=<APP_URL>&bot=<BOT_ID>`. Click the launcher and ask the same question as a visitor.
+6. Open the demo site with your bot: `https://docly-ai-demo-site.vercel.app/?app=https://docly-ai-ruddy.vercel.app&bot=<BOT_ID>` (the bot id is in the embed snippet on the dashboard). Click the launcher and ask the same question as a visitor.
 7. Open **Plan** (`/dashboard/billing`) and press **Demo upgrade, no payment**. Limits change immediately (2 to 10 documents, 30 to 300 messages per month).
 
 Billing is simulated. No payment details are collected and no money is charged.
