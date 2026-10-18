@@ -75,18 +75,22 @@ export function expectNoExpiryOrCvc(entries: readonly string[]): void {
   }
 }
 
-/** Resolves any CSS colour (rgb, oklch, ...) of an element to its [r, g, b, a] pixel via a 1x1 canvas. */
-async function backgroundPixel(locator: Locator): Promise<readonly number[]> {
-  return locator.evaluate((element) => {
+/** Resolves any CSS colour (rgb, lab, oklch, ...) of an element property to its [r, g, b, a] pixel via a 1x1 canvas. */
+async function colorPixel(locator: Locator, property: 'backgroundColor' | 'color'): Promise<readonly number[]> {
+  return locator.evaluate((element, prop) => {
     const canvas = document.createElement('canvas');
     canvas.width = 1;
     canvas.height = 1;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('No 2d context');
-    ctx.fillStyle = getComputedStyle(element).backgroundColor;
+    ctx.fillStyle = getComputedStyle(element)[prop];
     ctx.fillRect(0, 0, 1, 1);
     return Array.from(ctx.getImageData(0, 0, 1, 1).data);
-  });
+  }, property);
+}
+
+async function backgroundPixel(locator: Locator): Promise<readonly number[]> {
+  return colorPixel(locator, 'backgroundColor');
 }
 
 const luminanceOf = ([r = 0, g = 0, b = 0]: readonly number[]): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -131,11 +135,7 @@ export async function expectSky(page: Page, kind: SkyKind): Promise<void> {
   await expect(page.getByTestId('starfield')).toHaveAttribute('data-variant', kind);
 }
 
-/** The text colour is light (readable on the dark sky). */
+/** The text colour is light (readable on the dark sky). Resolved via canvas because Chrome reports lab()/oklch(). */
 export async function expectLightText(locator: Locator): Promise<void> {
-  const [r = 0, g = 0, b = 0] = await locator.evaluate((element) => {
-    const match = getComputedStyle(element).color.match(/[\d.]+/g) ?? [];
-    return match.slice(0, 3).map(Number);
-  });
-  expect(luminanceOf([r, g, b])).toBeGreaterThan(180);
+  expect(luminanceOf(await colorPixel(locator, 'color'))).toBeGreaterThan(180);
 }
