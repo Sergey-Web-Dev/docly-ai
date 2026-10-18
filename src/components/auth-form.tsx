@@ -13,7 +13,7 @@ interface AuthFormProps {
   readonly action: (prev: AuthFormState, formData: FormData) => Promise<AuthFormState>;
 }
 
-const AUTH_INPUT = 'h-10 border-white/15 bg-white/5 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/40 aria-invalid:border-red-400 aria-invalid:ring-red-400/30';
+const AUTH_INPUT = 'h-10 border-white/40 bg-white/5 text-zinc-100 placeholder:text-zinc-400 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/40 aria-invalid:border-red-400 aria-invalid:ring-red-400/30';
 const AUTH_BUTTON =
   'h-10 w-full bg-indigo-600 text-white shadow-[0_0_28px_-6px_rgba(99,102,241,0.8)] hover:bg-indigo-500 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/60';
 const ERROR_ID = 'auth-form-error';
