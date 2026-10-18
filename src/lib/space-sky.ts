@@ -23,8 +23,8 @@ const BAND_DIM = 0.55;
 
 export const SPARKLE_FRACTION = 0.03;
 export const MIN_SPACE_STARS = 120;
-export const MAX_SPACE_STARS = 900;
-const PIXELS_PER_SPACE_STAR = 3200;
+export const MAX_SPACE_STARS = 1100;
+const PIXELS_PER_SPACE_STAR = 1500;
 
 export interface SpaceStar {
   /** Normalised position, [0, 1). */

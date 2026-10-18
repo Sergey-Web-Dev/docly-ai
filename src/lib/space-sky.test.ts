@@ -70,7 +70,7 @@ describe('spaceStarCount', () => {
   it('should scale with area and density within bounds', () => {
     expect(spaceStarCount(1280, 800, 1)).toBeGreaterThan(spaceStarCount(375, 812, 1));
     expect(spaceStarCount(1280, 800, 0.5)).toBeLessThan(spaceStarCount(1280, 800, 1));
-    expect(spaceStarCount(5000, 3000, 1)).toBeLessThanOrEqual(900);
+    expect(spaceStarCount(5000, 3000, 1)).toBeLessThanOrEqual(1100);
     expect(spaceStarCount(100, 100, 1)).toBeGreaterThanOrEqual(120);
   });
 });
