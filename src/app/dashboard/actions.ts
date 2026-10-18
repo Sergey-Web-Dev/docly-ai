@@ -135,7 +135,7 @@ export async function completeDemoCheckout(input: CheckoutInput): Promise<Checko
     revalidatePath('/dashboard', 'layout');
     return { ok: true, chargeId: charge.chargeId, ...(last4 ? { last4 } : {}) };
   } catch (error) {
-    console.error('[checkout] failed', { userId: user.id, token, error: error instanceof Error ? error.message : typeof error });
+    console.error('[checkout] failed', { userId: user.id, token, name: error instanceof Error ? error.name : typeof error });
     return { ok: false, error: GENERIC_ERROR };
   }
 }
