@@ -20,7 +20,7 @@ export default async function BillingPage(): Promise<React.ReactElement> {
 
       <div role="note" className="flex items-start gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <p>Billing is simulated for this demo. No payment details are collected and no money is charged.</p>
+        <p>Billing is simulated for this demo. Upgrading uses a demo checkout that only accepts Stripe test cards; no real card is ever needed and no money is charged.</p>
       </div>
 
       <Card>

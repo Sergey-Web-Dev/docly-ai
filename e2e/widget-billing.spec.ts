@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { expect, test, type BrowserContext, type FrameLocator, type Page } from '@playwright/test';
-import { setMonthlyUsage, signUpFresh } from './helpers';
+import { DEMO_ONLY_ERROR, expectNoCardDigits, fillCard, recordRequests, setMonthlyUsage, signUpFresh } from './helpers';
 
 const fixture = (name: string): string => path.join(__dirname, 'fixtures', name);
 const DEMO_URL = 'http://acme-demo.test/';
@@ -208,16 +208,44 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     await visitor.getByRole('button', { name: 'Open chat' }).click();
     await expect(visitor.frameLocator('iframe[title="Chat assistant"]').getByText('This assistant is unavailable')).toBeVisible();
 
-    // Billing: demo upgrade.
+    // Billing: demo checkout. Real and declined cards change nothing; a test card upgrades. No card digits are ever sent.
+    const requests = recordRequests(page);
     await page.goto('/dashboard/billing');
-    await expect(page.getByText('Billing is simulated for this demo. No payment details are collected and no money is charged.')).toBeVisible();
+    await expect(page.getByText(/Billing is simulated for this demo/)).toBeVisible();
     await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
-    await page.getByRole('button', { name: 'Demo upgrade — no payment' }).click();
-    await expect(page.getByText('Switch to Pro? This is a demo — nothing is charged.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Confirm switch to Pro' })).toBeFocused();
-    await page.getByRole('button', { name: 'Confirm switch to Pro' }).click();
+    await page.getByRole('link', { name: 'Upgrade to Pro' }).click();
+    await expect(page).toHaveURL(/\/dashboard\/billing\/checkout$/);
+    await expect(page.getByTestId('checkout-total')).toHaveText('$19.00');
+    await expect(page.getByLabel('Card number')).toHaveAttribute('autocomplete', 'off');
+    await expect(page.getByLabel('Card number')).toBeEnabled();
+
+    await fillCard(page, '4111 1111 1111 1111');
+    await page.getByRole('button', { name: 'Pay $19.00 — demo' }).click();
+    await expect(page.getByText(DEMO_ONLY_ERROR)).toBeVisible();
+    await expect(page.getByLabel('Card number')).toBeFocused();
+    await expect(page.getByLabel('Card number')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
+
+    await fillCard(page, '4000 0000 0000 0002');
+    await page.getByRole('button', { name: 'Pay $19.00 — demo' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Your card was declined.' })).toBeVisible();
+    await expect(page.getByLabel('CVC')).toHaveValue('');
+    await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
+
+    await fillCard(page, '4242 4242 4242 4242');
+    await page.getByRole('button', { name: 'Pay $19.00 — demo' }).click();
+    const success = page.getByTestId('checkout-success');
+    await expect(success).toBeVisible({ timeout: 15_000 });
+    await expect(success).toBeFocused();
+    await expect(success).toContainText("Payment successful — you're on Pro");
+    await expect(page.getByTestId('checkout-charge-id')).toHaveText(/^ch_demo_[0-9a-f]{18}$/);
+    await expect(success).toContainText('•••• 4242');
     await expect(page.getByTestId('plan-badge')).toHaveText('Pro plan');
-    await expect(page.getByRole('status').filter({ hasText: 'You are now on the Pro plan.' })).toBeFocused();
+    expectNoCardDigits(requests.all, ['4242424242424242', '4000000000000002', '4111111111111111']);
+    expect(requests.all.some((entry) => entry.includes('tok_visa'))).toBe(true);
+
+    await page.getByRole('link', { name: 'Back to billing' }).click();
+    await expect(page).toHaveURL(/\/dashboard\/billing$/);
     await expect(page.getByTestId('billing-documents')).toHaveText('1 / 10');
     await expect(page.getByRole('button', { name: 'Current plan' })).toBeDisabled();
 
@@ -230,7 +258,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
 
     // Billing: downgrade keeps documents, blocks new uploads.
     await page.goto('/dashboard/billing');
-    await page.getByRole('button', { name: 'Downgrade to Free' }).click();
+    await page.getByRole('button', { name: 'Cancel subscription (demo)' }).click();
     await page.getByRole('button', { name: 'Confirm switch to Free' }).click();
     await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
     await expect(page.getByTestId('billing-over-limit')).toContainText('You have 3 documents; the Free plan allows 2.');

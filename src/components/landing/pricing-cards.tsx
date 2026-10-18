@@ -51,7 +51,7 @@ export function PricingCards({ renderAction = defaultAction }: PricingCardsProps
             </CardContent>
             <CardFooter className="flex-col items-stretch gap-2">
               {renderAction(plan)}
-              {plan.id === 'pro' && <p className="text-center text-xs text-zinc-500">Demo upgrade — no payment</p>}
+              {plan.id === 'pro' && <p className="text-center text-xs text-zinc-500">Demo checkout — test cards only</p>}
             </CardFooter>
           </Card>
         </li>

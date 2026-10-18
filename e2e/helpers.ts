@@ -32,3 +32,29 @@ export async function setMonthlyUsage(email: string, count: number): Promise<voi
   const { error } = await admin.from('usage_counters').upsert({ owner_id: userId, month, message_count: count });
   if (error) throw error;
 }
+
+export const DEMO_ONLY_ERROR = 'This is a demo checkout. Use a test card such as 4242 4242 4242 4242 — never enter a real card.';
+
+export async function fillCard(page: Page, number: string): Promise<void> {
+  const year = String((new Date().getFullYear() + 3) % 100).padStart(2, '0');
+  await page.getByLabel('Card number').fill(number);
+  await page.getByLabel('Expiry (MM/YY)').fill(`12${year}`);
+  await page.getByLabel('CVC').fill('123');
+  await page.getByLabel('Name on card').fill('Test Customer');
+}
+
+// Records every outgoing request (method, URL and body). Used to prove that card digits never leave the browser.
+export function recordRequests(page: Page): { readonly all: string[] } {
+  const all: string[] = [];
+  page.on('request', (request) => {
+    all.push(`${request.method()} ${request.url()} ${request.postData() ?? ''}`);
+  });
+  return { all };
+}
+
+export function expectNoCardDigits(requests: readonly string[], digits: readonly string[]): void {
+  for (const entry of requests) {
+    const compact = entry.replace(/[\s+-]|%20/g, '');
+    for (const number of digits) expect(compact, `request leaked a card ending ${number.slice(-4)}`).not.toContain(number);
+  }
+}
