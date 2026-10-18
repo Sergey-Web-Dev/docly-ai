@@ -34,10 +34,19 @@ function resolveCharge(token: string): ChargeResult {
 // Mock acquirer: accepts only the Stripe test tokens and simulates processing time. It never sees card numbers.
 export function createMockPaymentProvider(options: MockProviderOptions = {}): PaymentProvider {
   const wait = options.delay ?? (options.delayMs === undefined ? sleep : () => sleep(options.delayMs ?? 0));
+  // In-memory idempotency store (fine for a demo). It holds the promise, so concurrent calls with the same key share one charge.
+  const charges = new Map<string, Promise<ChargeResult>>();
   return {
-    async charge(request: ChargeRequest): Promise<ChargeResult> {
-      await wait(PROCESSING_MS);
-      return resolveCharge(request.token);
+    charge(request: ChargeRequest): Promise<ChargeResult> {
+      const existing = charges.get(request.idempotencyKey);
+      if (existing) return existing;
+      const created = wait(PROCESSING_MS).then(() => resolveCharge(request.token));
+      charges.set(request.idempotencyKey, created);
+      // Only successful charges are remembered: a declined card can be retried (with another card) under the same key.
+      void created.then((result) => {
+        if (!result.ok) charges.delete(request.idempotencyKey);
+      });
+      return created;
     },
   };
 }

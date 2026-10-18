@@ -56,8 +56,6 @@ export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 export const isPublishedSchema = z.boolean();
 
-export const planIdSchema = z.enum(['free', 'pro']);
-
 // Upgrading to Pro only happens through checkout; this path is the downgrade/cancel.
 export const downgradePlanSchema = z.literal('free', {
   error: (issue) => (issue.input === 'pro' ? 'Use checkout to upgrade.' : 'Invalid plan.'),
@@ -66,8 +64,7 @@ export const downgradePlanSchema = z.literal('free', {
 // Strict on purpose: any extra key (for example a card number) makes the whole input invalid.
 export const checkoutInputSchema = z.strictObject({
   token: z.enum(TEST_TOKENS),
-  brand: z.enum(['visa', 'mastercard', 'amex', 'unknown']).optional(),
-  last4: z.string().regex(/^\d{4}$/).optional(),
+  idempotencyKey: z.uuid(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutInputSchema>;

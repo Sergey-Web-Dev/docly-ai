@@ -12,6 +12,7 @@ import {
   formatCardNumber,
   normalizeCardNumber,
   tokenizeTestCard,
+  DEMO_ONLY_MESSAGE,
   type CardBrand,
   type CardField,
 } from '@/lib/payments/demo-card';
@@ -26,7 +27,7 @@ interface CheckoutFormProps {
 interface Receipt {
   readonly chargeId: string;
   readonly brand: CardBrand;
-  readonly last4: string | undefined;
+  readonly last4: string;
 }
 
 type FieldErrors = Partial<Record<CardField, string>>;
@@ -39,6 +40,15 @@ const FIELD_IDS: Readonly<Record<CardField, string>> = {
 };
 const BRAND_LABEL: Readonly<Record<CardBrand, string>> = { visa: 'Visa', mastercard: 'Mastercard', amex: 'Amex', unknown: '' };
 const TEST_CARD_NUMBER = '4242 4242 4242 4242';
+
+// Keeps password managers and autofill away from the card fields (the names are deliberately non-standard too).
+const NO_AUTOFILL = {
+  autoComplete: 'off',
+  'data-1p-ignore': true,
+  'data-lpignore': 'true',
+  'data-bwignore': true,
+  'data-form-type': 'other',
+} as const;
 
 function formatExpiry(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 4);
@@ -66,17 +76,11 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
   const [formError, setFormError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
+  // One key per page load: a repeated submit of the same checkout can never charge twice.
+  const [checkoutId] = useState(() => crypto.randomUUID());
+  const isSubmittingRef = useRef(false);
   const receiptRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
-
-  // Card data lives only in this component. Wipe the DOM values when it unmounts.
-  useEffect(() => {
-    const form = formRef.current;
-    return () => {
-      form?.querySelectorAll('input').forEach((input) => { input.value = ''; });
-    };
-  }, []);
 
   useEffect(() => {
     if (receipt) receiptRef.current?.focus();
@@ -106,22 +110,25 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (isDisabled) return;
+    if (isDisabled || isSubmittingRef.current) return;
     setFormError(null);
 
     const tokenized = tokenizeTestCard({ number, expiry, cvc, name });
     if (!tokenized.ok) {
+      // A real (non-test) card number must not stay in the DOM or in state a moment longer than needed.
+      if (tokenized.error === DEMO_ONLY_MESSAGE) clearCardData();
       setErrors({ [tokenized.field]: tokenized.error });
       document.getElementById(FIELD_IDS[tokenized.field])?.focus();
       return;
     }
     setErrors({});
+    isSubmittingRef.current = true;
     setIsProcessing(true);
     try {
-      // Only the token and display data leave the browser. The number, expiry and CVC never do.
-      const result = await completeDemoCheckout({ token: tokenized.token, brand: tokenized.brand, last4: tokenized.last4 });
+      // Only the token and the idempotency key leave the browser. The number, expiry and CVC never do.
+      const result = await completeDemoCheckout({ token: tokenized.token, idempotencyKey: checkoutId });
       if (result.ok) {
-        setReceipt({ chargeId: result.chargeId, brand: tokenized.brand, last4: result.last4 });
+        setReceipt({ chargeId: result.chargeId, brand: result.brand, last4: result.last4 });
         setName('');
         router.refresh();
       } else {
@@ -131,6 +138,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
       setFormError('Something went wrong. Please try again.');
     } finally {
       clearCardData();
+      isSubmittingRef.current = false;
       setIsProcessing(false);
     }
   }
@@ -149,9 +157,10 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
   const fieldProps = (field: CardField): { error: string | undefined; disabled: boolean } => ({ error: errors[field], disabled: isDisabled });
 
   return (
-    <form ref={formRef} onSubmit={(event) => void handleSubmit(event)} noValidate autoComplete="off" aria-label="Payment details" className="space-y-5">
+    <form onSubmit={(event) => void handleSubmit(event)} noValidate autoComplete="off" aria-label="Payment details" className="space-y-5">
       <div role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-        <p>
+        <p className="font-semibold">Never enter a real card — real cards are rejected.</p>
+        <p className="mt-1">
           <strong>Demo checkout — no real payment.</strong> Use test card <strong>{TEST_CARD_NUMBER}</strong>, any future date, any CVC.
         </p>
         <Button type="button" size="sm" variant="outline" className="mt-2 border-amber-400 bg-white" onClick={fillTestCard} disabled={isDisabled}>
@@ -174,7 +183,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
         label="Card number"
         name="demo-card-number"
         inputMode="numeric"
-        autoComplete="off"
+        {...NO_AUTOFILL}
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
@@ -192,7 +201,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
           label="Expiry (MM/YY)"
           name="demo-card-exp"
           inputMode="numeric"
-          autoComplete="off"
+          {...NO_AUTOFILL}
           autoCorrect="off"
           spellCheck={false}
           placeholder="MM/YY"
@@ -206,7 +215,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
           label="CVC"
           name="demo-card-cvv"
           inputMode="numeric"
-          autoComplete="off"
+          {...NO_AUTOFILL}
           autoCorrect="off"
           spellCheck={false}
           placeholder="123"
@@ -221,7 +230,7 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
         id={FIELD_IDS.name}
         label="Name on card"
         name="demo-card-holder"
-        autoComplete="off"
+        {...NO_AUTOFILL}
         autoCorrect="off"
         spellCheck={false}
         value={name}

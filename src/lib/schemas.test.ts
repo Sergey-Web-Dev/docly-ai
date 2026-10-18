@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, planIdSchema, downgradePlanSchema, checkoutInputSchema } from '@/lib/schemas';
+import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, downgradePlanSchema, checkoutInputSchema } from '@/lib/schemas';
 
 function form(email: string, password: string): FormData {
   const data = new FormData();
@@ -95,16 +95,6 @@ describe('isPublishedSchema', () => {
   });
 });
 
-describe('planIdSchema', () => {
-  it.each(['free', 'pro'])('should accept the plan id %s', (value) => {
-    expect(planIdSchema.parse(value)).toBe(value);
-  });
-
-  it.each(['enterprise', 'PRO', '', null, 1])('should reject the unknown plan %s', (value) => {
-    expect(planIdSchema.safeParse(value).success).toBe(false);
-  });
-});
-
 describe('downgradePlanSchema', () => {
   it('should accept free', () => {
     expect(downgradePlanSchema.parse('free')).toBe('free');
@@ -121,15 +111,22 @@ describe('downgradePlanSchema', () => {
   });
 });
 
+const KEY = '3f2b8c1e-7a4d-4e6f-9b0a-1c2d3e4f5a6b';
+
 describe('checkoutInputSchema', () => {
-  it('should accept a known test token with optional display data', () => {
-    expect(checkoutInputSchema.parse({ token: 'tok_visa', brand: 'visa', last4: '4242' })).toEqual({ token: 'tok_visa', brand: 'visa', last4: '4242' });
+  it('should accept a known test token with an idempotency key', () => {
+    expect(checkoutInputSchema.parse({ token: 'tok_visa', idempotencyKey: KEY })).toEqual({ token: 'tok_visa', idempotencyKey: KEY });
   });
 
-  it.each([{ token: 'tok_x' }, { token: 'tok_visa', last4: '424' }, { token: 'tok_visa', brand: 'diners' }, { token: 'tok_visa', number: '4242424242424242' }, null])(
-    'should reject %j',
-    (value) => {
-      expect(checkoutInputSchema.safeParse(value).success).toBe(false);
-    },
-  );
+  it.each([
+    { token: 'tok_x', idempotencyKey: KEY },
+    { token: 'tok_visa' },
+    { token: 'tok_visa', idempotencyKey: 'not-a-uuid' },
+    { token: 'tok_visa', idempotencyKey: KEY, last4: '4242' },
+    { token: 'tok_visa', idempotencyKey: KEY, brand: 'visa' },
+    { token: 'tok_visa', idempotencyKey: KEY, number: '4242424242424242' },
+    null,
+  ])('should reject %j', (value) => {
+    expect(checkoutInputSchema.safeParse(value).success).toBe(false);
+  });
 });

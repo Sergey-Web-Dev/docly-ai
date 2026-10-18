@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { expect, test, type BrowserContext, type FrameLocator, type Page } from '@playwright/test';
-import { DEMO_ONLY_ERROR, expectNoCardDigits, fillCard, recordRequests, setMonthlyUsage, signUpFresh } from './helpers';
+import { DEMO_ONLY_ERROR, expectNoCardDigits, expectNoExpiryOrCvc, fillCard, recordRequests, setMonthlyUsage, signUpFresh } from './helpers';
 
 const fixture = (name: string): string => path.join(__dirname, 'fixtures', name);
 const DEMO_URL = 'http://acme-demo.test/';
@@ -216,14 +216,34 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     await page.getByRole('link', { name: 'Upgrade to Pro' }).click();
     await expect(page).toHaveURL(/\/dashboard\/billing\/checkout$/);
     await expect(page.getByTestId('checkout-total')).toHaveText('$19.00');
-    await expect(page.getByLabel('Card number')).toHaveAttribute('autocomplete', 'off');
+    await expect(page.getByRole('heading', { name: 'Demo checkout' })).toBeVisible();
+    await expect(page.getByText('Never enter a real card — real cards are rejected.')).toBeVisible();
+    for (const label of ['Card number', 'Expiry (MM/YY)', 'CVC', 'Name on card']) {
+      const input = page.getByLabel(label);
+      await expect(input).toHaveAttribute('autocomplete', 'off');
+      await expect(input).toHaveAttribute('data-1p-ignore', /.*/);
+      await expect(input).toHaveAttribute('data-lpignore', 'true');
+      await expect(input).toHaveAttribute('data-bwignore', /.*/);
+      await expect(input).toHaveAttribute('data-form-type', 'other');
+    }
     await expect(page.getByLabel('Card number')).toBeEnabled();
+
+    // Before hydration (client scripts blocked) the fields are disabled, so a native submit can never carry card digits.
+    const unhydrated = await page.context().newPage();
+    await unhydrated.route('**/_next/static/**/*.js', (route) => route.abort());
+    await unhydrated.goto('/dashboard/billing/checkout');
+    await expect(unhydrated.getByLabel('Card number')).toBeDisabled();
+    await unhydrated.close();
 
     await fillCard(page, '4111 1111 1111 1111');
     await page.getByRole('button', { name: 'Pay $19.00 — demo' }).click();
     await expect(page.getByText(DEMO_ONLY_ERROR)).toBeVisible();
     await expect(page.getByLabel('Card number')).toBeFocused();
     await expect(page.getByLabel('Card number')).toHaveAttribute('aria-invalid', 'true');
+    // A rejected real card is wiped immediately, not just after a later submit.
+    await expect(page.getByLabel('Card number')).toHaveValue('');
+    await expect(page.getByLabel('Expiry (MM/YY)')).toHaveValue('');
+    await expect(page.getByLabel('CVC')).toHaveValue('');
     await expect(page.getByTestId('plan-badge')).toHaveText('Free plan');
 
     await fillCard(page, '4000 0000 0000 0002');
@@ -242,6 +262,9 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     await expect(success).toContainText('•••• 4242');
     await expect(page.getByTestId('plan-badge')).toHaveText('Pro plan');
     expectNoCardDigits(requests.all, ['4242424242424242', '4000000000000002', '4111111111111111']);
+    expectNoCardDigits(requests.console, ['4242424242424242', '4000000000000002', '4111111111111111']);
+    expectNoExpiryOrCvc(requests.all);
+    expectNoExpiryOrCvc(requests.console);
     expect(requests.all.some((entry) => entry.includes('tok_visa'))).toBe(true);
 
     await success.getByRole('link', { name: 'Back to billing' }).click();

@@ -143,3 +143,13 @@ describe('tokenizeTestCard', () => {
     expect(tokenizeTestCard({ number: '4111111111111111', expiry: '01/20', cvc: '1', name: '' }, NOW)).toMatchObject({ field: 'number' });
   });
 });
+
+describe('validateExpiry in local time', () => {
+  it('should accept the current month late on its last local day', () => {
+    expect(validateExpiry('10/26', new Date(2026, 9, 31, 23, 59))).toBeNull();
+  });
+
+  it('should reject the previous month early on the first local day', () => {
+    expect(validateExpiry('09/26', new Date(2026, 9, 1, 0, 1))).toBe('Your card has expired.');
+  });
+});

@@ -65,7 +65,7 @@ export function validateExpiry(value: string, now: Date = new Date()): string | 
   const month = match ? Number(match[1]) : 0;
   if (!match || month < 1 || month > 12) return 'Enter a valid expiry date (MM/YY).';
   const year = 2000 + Number(match[2]);
-  const isPast = year < now.getUTCFullYear() || (year === now.getUTCFullYear() && month < now.getUTCMonth() + 1);
+  const isPast = year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1);
   return isPast ? 'Your card has expired.' : null;
 }
 

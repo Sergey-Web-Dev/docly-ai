@@ -35,26 +35,42 @@ export async function setMonthlyUsage(email: string, count: number): Promise<voi
 
 export const DEMO_ONLY_ERROR = 'This is a demo checkout. Use a test card such as 4242 4242 4242 4242 — never enter a real card.';
 
+// Distinctive values so a leak of the expiry or CVC into a request or a console message is easy to spot.
+export const DISTINCT_EXPIRY = '11/34';
+export const DISTINCT_CVC = '987';
+
 export async function fillCard(page: Page, number: string): Promise<void> {
-  const year = String((new Date().getFullYear() + 3) % 100).padStart(2, '0');
   await page.getByLabel('Card number').fill(number);
-  await page.getByLabel('Expiry (MM/YY)').fill(`12${year}`);
-  await page.getByLabel('CVC').fill('123');
+  await page.getByLabel('Expiry (MM/YY)').fill('1134');
+  await page.getByLabel('CVC').fill(DISTINCT_CVC);
   await page.getByLabel('Name on card').fill('Test Customer');
 }
 
-// Records every outgoing request (method, URL and body). Used to prove that card digits never leave the browser.
-export function recordRequests(page: Page): { readonly all: string[] } {
+// Records every outgoing request (method, URL and raw body, read byte-for-byte) and every console message.
+// Used to prove that card digits never leave the browser or reach the console.
+export function recordRequests(page: Page): { readonly all: string[]; readonly console: string[] } {
   const all: string[] = [];
+  const consoleMessages: string[] = [];
   page.on('request', (request) => {
-    all.push(`${request.method()} ${request.url()} ${request.postData() ?? ''}`);
+    all.push(`${request.method()} ${request.url()} ${request.postDataBuffer()?.toString('latin1') ?? ''}`);
   });
-  return { all };
+  page.on('console', (message) => {
+    consoleMessages.push(message.text());
+  });
+  return { all, console: consoleMessages };
 }
 
 export function expectNoCardDigits(requests: readonly string[], digits: readonly string[]): void {
   for (const entry of requests) {
     const compact = entry.replace(/[\s+-]|%20/g, '');
-    for (const number of digits) expect(compact, `request leaked a card ending ${number.slice(-4)}`).not.toContain(number);
+    for (const number of digits) expect(compact, `leaked a card ending ${number.slice(-4)}`).not.toContain(number);
+  }
+}
+
+// Expiry and CVC are short, so they are matched as the exact strings a form post or a console line would carry.
+export function expectNoExpiryOrCvc(entries: readonly string[]): void {
+  for (const entry of entries) {
+    expect(entry, 'leaked the expiry').not.toMatch(/11\s*(\/|%2F)\s*34|\b1134\b/i);
+    expect(entry, 'leaked the CVC').not.toMatch(/\b987\b/);
   }
 }

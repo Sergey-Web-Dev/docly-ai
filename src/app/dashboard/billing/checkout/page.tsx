@@ -18,7 +18,7 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
         <ArrowLeft className="size-4" aria-hidden />
         Back to billing
       </Link>
-      <h2 className="text-xl font-semibold">Checkout</h2>
+      <h2 className="text-xl font-semibold">Demo checkout</h2>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="h-fit bg-white">
