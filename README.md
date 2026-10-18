@@ -11,7 +11,7 @@ Your docs. Instant answers. Upload company documents (PDF or TXT), ask questions
 1. Open https://docly-ai-ruddy.vercel.app and sign up with email and password (the account is signed in immediately).
 2. Create your bot (name and welcome message).
 3. Upload a PDF or TXT file and wait for the status **Ready**.
-4. Ask a question in the dashboard chat. Answers come only from your documents; anything else gets "I don't know based on these documents."
+4. Ask a question in the dashboard chat. Answers come only from your documents; anything else gets "I don't know based on these documents." In the dashboard chat each answer shows the document(s) it came from; the public widget never shows file names.
 5. Switch **Published** on and copy the embed snippet.
 6. Open the demo site with your bot: `https://docly-ai-demo-site.vercel.app/?app=https://docly-ai-ruddy.vercel.app&bot=<BOT_ID>` (the bot id is in the embed snippet on the dashboard). Click the launcher and ask the same question as a visitor.
 7. Open **Plan** (`/dashboard/billing`) and press **Upgrade to Pro**, then pay in the demo checkout with the test card `4242 4242 4242 4242` (any future date, any CVC; the **Fill test card** button does it for you). Limits change immediately (2 to 10 documents, 30 to 300 messages per month).
@@ -153,7 +153,7 @@ With the `app` and `bot` query parameters the page injects the widget script for
 
 - Only text-based PDF and TXT files, up to 5 MB. No OCR for scanned PDFs and no DOCX.
 - Ingestion is synchronous (at most 5 MB, 200 chunks, 60 second function limit), with no queue.
-- No streaming answers, no source citations and no saved chat history. The conversation lives in the browser tab only.
+- No streaming answers, source citations only for the owner (not in the public widget), and no saved chat history. The conversation lives in the browser tab only.
 - One bot per account.
 - Billing is simulated: the demo checkout accepts only Stripe test cards and charges nothing; Pro changes the enforced limits. A downgrade deletes nothing; new uploads are blocked until the document count is below the Free limit.
 - Gemini free tier has per-minute and per-day rate limits (answers can fail with a friendly "temporarily unavailable" message), and on the free tier Google may use prompts to improve its products. Do not upload confidential documents to a free-tier key.
