@@ -367,6 +367,11 @@ html:has(.space-backdrop) body {
   --ring: oklch(0.8 0.11 277);
 }
 
+/* Full-opacity focus ring on dark glass (the default ring/50 is too faint there). Unlayered so it beats utilities. */
+.space-ui :focus-visible {
+  --tw-ring-color: var(--ring);
+}
+
 @layer components {
   .space-ui [data-slot='card'] {
     --tw-ring-color: rgb(255 255 255 / 0.1);

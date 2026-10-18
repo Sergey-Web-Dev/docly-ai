@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
 import { completeDemoCheckout } from '@/app/dashboard/actions';
 import { CheckoutField } from '@/components/billing/checkout-field';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -158,8 +158,11 @@ export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormPr
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate autoComplete="off" aria-label="Payment details" className="space-y-5">
-      <div role="note" className="rounded-lg border border-amber-300/50 bg-amber-400/10 p-3 text-sm text-amber-50">
-        <p className="font-semibold">Never enter a real card — real cards are rejected.</p>
+      <div role="note" className="rounded-lg border border-amber-300/70 bg-amber-400/20 p-3 text-sm text-amber-50">
+        <p className="flex items-center gap-2 font-semibold">
+          <AlertTriangle className="size-4 shrink-0 text-amber-300" aria-hidden />
+          Never enter a real card — real cards are rejected.
+        </p>
         <p className="mt-1">
           <strong>Demo checkout — no real payment.</strong> Use test card <strong>{TEST_CARD_NUMBER}</strong>, any future date, any CVC.
         </p>
