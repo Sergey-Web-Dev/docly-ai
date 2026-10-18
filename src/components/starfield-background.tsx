@@ -3,14 +3,13 @@
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { SpaceBackdrop } from '@/components/space-backdrop';
-import { createSpaceScene, drawSpace } from '@/lib/space-draw';
+import { createSpaceScene, drawSpace, type SpaceScene } from '@/lib/space-draw';
 import { createFieldState, drawField, type FieldState } from '@/lib/starfield-draw';
 import { clampOffset, easeToward, generateStars, starCountForArea, type Star } from '@/lib/starfield';
 
 const STAR_SEED = 20260611;
 const SPACE_SEED = 20261018;
 const SPACE_PATHS: readonly string[] = ['/', '/login', '/signup'];
-const SPACE_CLASS = 'space-mode';
 const MAX_PARALLAX_PX = 28;
 const IDLE_MS = 2000;
 const MAX_DPR = 2;
@@ -26,6 +25,7 @@ type StarfieldVariant = 'light' | 'space';
 interface StarfieldCanvasProps {
   readonly variant: StarfieldVariant;
   readonly density: number;
+  /** Only the light variant uses this; the space variant has its own per-star brightness. */
   readonly opacity: number;
   /** Draw one still frame and run no animation loop (checkout page). */
   readonly isPaused: boolean;
@@ -53,6 +53,7 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
     const run = (isStatic: boolean): (() => void) => {
       const state: FieldState = createFieldState();
       let stars: readonly Star[] = [];
+      let scene: SpaceScene | null = null;
       let drawFrame: (time: number) => void = () => undefined;
       let frameId = 0;
       let lastTime = 0;
@@ -69,8 +70,9 @@ function StarfieldCanvas({ variant, density, opacity, isPaused }: StarfieldCanva
         canvas.height = Math.round(state.height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (variant === 'space') {
-          const scene = createSpaceScene(state.width, state.height, effectiveDensity, dpr, SPACE_SEED);
-          drawFrame = (time) => drawSpace(ctx, scene, state, time, !isStatic);
+          const next = createSpaceScene(state.width, state.height, effectiveDensity, dpr, SPACE_SEED, scene);
+          scene = next;
+          drawFrame = (time) => drawSpace(ctx, next, state, time, !isStatic);
         } else {
           stars = generateStars(starCountForArea(state.width, state.height, effectiveDensity), STAR_SEED);
           drawFrame = (time) => drawField(ctx, stars, state, time, opacity);
@@ -179,12 +181,6 @@ export function StarfieldBackground(): React.ReactElement | null {
   const pathname = usePathname();
   const isEmbed = pathname.startsWith('/embed');
   const isSpace = SPACE_PATHS.includes(pathname);
-
-  useEffect(() => {
-    if (!isSpace) return;
-    document.documentElement.classList.add(SPACE_CLASS);
-    return () => document.documentElement.classList.remove(SPACE_CLASS);
-  }, [isSpace]);
 
   if (isEmbed) return null;
   if (isSpace) {
