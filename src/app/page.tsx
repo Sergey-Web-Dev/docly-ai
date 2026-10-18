@@ -8,7 +8,7 @@ import { SiteHeader } from '@/components/landing/site-header';
 
 export default function Home(): React.ReactElement {
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden text-zinc-900">
+    <div className="flex min-h-screen flex-col overflow-x-hidden text-zinc-100">
       <SiteHeader />
       <main className="flex-1">
         <Hero />
@@ -16,18 +16,18 @@ export default function Home(): React.ReactElement {
         <Features />
         <section id="pricing" aria-labelledby="pricing-heading" className="scroll-mt-14 py-16 md:py-24">
           <div className="mx-auto max-w-4xl px-4 sm:px-6">
-            <h2 id="pricing-heading" className="text-3xl font-semibold tracking-tight text-zinc-950">
+            <h2 id="pricing-heading" className="text-3xl font-semibold tracking-tight text-white">
               Simple pricing
             </h2>
-            <p className="mt-3 text-zinc-600">Start free. Upgrade when you need more room.</p>
+            <p className="mt-3 text-zinc-400">Start free. Upgrade when you need more room.</p>
             <div className="mt-10">
-              <PricingCards />
+              <PricingCards tone="dark" />
             </div>
           </div>
         </section>
-        <section aria-labelledby="cta-heading" className="border-t border-zinc-200 bg-zinc-50/50 py-16">
+        <section aria-labelledby="cta-heading" className="border-t border-white/10 bg-white/[0.02] py-16">
           <div className="mx-auto flex max-w-6xl flex-col items-center gap-5 px-4 text-center sm:px-6">
-            <h2 id="cta-heading" className="text-3xl font-semibold tracking-tight text-zinc-950">
+            <h2 id="cta-heading" className="text-3xl font-semibold tracking-tight text-white">
               Ready in 5 minutes
             </h2>
             <CtaLink href="/signup" large>

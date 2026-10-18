@@ -18,17 +18,17 @@ const FEATURES: readonly Feature[] = [
 
 export function Features(): React.ReactElement {
   return (
-    <section aria-labelledby="features-heading" className="border-y border-zinc-200 bg-zinc-50/50 py-16 md:py-24">
+    <section aria-labelledby="features-heading" className="border-y border-white/10 bg-white/[0.02] py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <h2 id="features-heading" className="text-3xl font-semibold tracking-tight text-zinc-950">
+        <h2 id="features-heading" className="text-3xl font-semibold tracking-tight text-white">
           Built to be trusted
         </h2>
         <ul className="mt-10 grid gap-8 md:grid-cols-3">
           {FEATURES.map((feature) => (
             <li key={feature.title}>
-              <feature.icon className="size-5 text-indigo-600" aria-hidden="true" />
-              <h3 className="mt-3 font-medium text-zinc-950">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{feature.description}</p>
+              <feature.icon className="size-5 text-indigo-300" aria-hidden="true" />
+              <h3 className="mt-3 font-medium text-white">{feature.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-zinc-400">{feature.description}</p>
             </li>
           ))}
         </ul>

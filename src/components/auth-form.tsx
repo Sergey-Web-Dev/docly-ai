@@ -13,6 +13,9 @@ interface AuthFormProps {
   readonly action: (prev: AuthFormState, formData: FormData) => Promise<AuthFormState>;
 }
 
+const AUTH_INPUT = 'h-10 border-white/15 bg-white/5 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/40 aria-invalid:border-red-400 aria-invalid:ring-red-400/30';
+const AUTH_BUTTON =
+  'h-10 w-full bg-indigo-600 text-white shadow-[0_0_28px_-6px_rgba(99,102,241,0.8)] hover:bg-indigo-500 focus-visible:border-indigo-300 focus-visible:ring-indigo-300/60';
 const ERROR_ID = 'auth-form-error';
 
 const COPY = {
@@ -26,28 +29,28 @@ export function AuthForm({ mode, action }: AuthFormProps): React.ReactElement {
   const describedBy = state.error ? ERROR_ID : undefined;
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm border border-white/10 bg-white/5 text-zinc-100 shadow-[0_0_80px_-24px_rgba(99,102,241,0.6)] ring-0 backdrop-blur-xl">
       <CardHeader>
-        <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
+        <CardTitle className="text-lg text-white">{copy.title}</CardTitle>
+        <CardDescription className="text-zinc-400">{copy.description}</CardDescription>
       </CardHeader>
       <form action={formAction}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" defaultValue={state.email} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
+            <Label htmlFor="email" className="text-zinc-200">Email</Label>
+            <Input id="email" className={AUTH_INPUT} name="email" type="email" autoComplete="email" defaultValue={state.email} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
+            <Label htmlFor="password" className="text-zinc-200">Password</Label>
+            <Input id="password" className={AUTH_INPUT} name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={8} aria-invalid={state.error ? true : undefined} aria-describedby={describedBy} required />
           </div>
-          {state.error ? <p id={ERROR_ID} role="alert" className="text-sm text-destructive">{state.error}</p> : null}
-          {state.notice ? <p role="status" className="text-sm text-muted-foreground">{state.notice}</p> : null}
+          {state.error ? <p id={ERROR_ID} role="alert" className="text-sm text-red-300">{state.error}</p> : null}
+          {state.notice ? <p role="status" className="text-sm text-zinc-300">{state.notice}</p> : null}
         </CardContent>
-        <CardFooter className="mt-4 flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Please wait…' : copy.submit}</Button>
-          <p className="text-sm text-muted-foreground">
-            {copy.switchText} <Link href={copy.switchHref} className="font-medium text-foreground underline-offset-4 hover:underline">{copy.switchLabel}</Link>
+        <CardFooter className="mt-4 flex flex-col gap-3 border-white/10 bg-transparent">
+          <Button type="submit" className={AUTH_BUTTON} disabled={isPending}>{isPending ? 'Please wait…' : copy.submit}</Button>
+          <p className="text-sm text-zinc-400">
+            {copy.switchText} <Link href={copy.switchHref} className="rounded-sm font-medium text-white underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-indigo-300/60">{copy.switchLabel}</Link>
           </p>
         </CardFooter>
       </form>
