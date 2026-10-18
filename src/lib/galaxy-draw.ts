@@ -162,7 +162,7 @@ function drawGalaxy(ctx: CanvasRenderingContext2D, scene: GalaxyScene, state: Fi
   ctx.rotate(GALAXY_TILT);
   ctx.scale(1, GALAXY_SQUASH);
   ctx.rotate(angle);
-  ctx.globalAlpha = 0.95;
+  ctx.globalAlpha = layout.hazeAlpha;
   ctx.drawImage(scene.haze, -view.radius, -view.radius, view.radius * 2, view.radius * 2);
   ctx.restore();
 

@@ -76,6 +76,18 @@ describe('galaxyLayout', () => {
     expect(layout.radius).toBeGreaterThan(300);
   });
 
+  it.each([[1536, 864], [1920, 1080], [1440, 900]])('should keep the core right of the 1024px chat column at %ix%i', (w, h) => {
+    const layout = galaxyLayout(w, h);
+    expect(layout.cx - layout.radius * 0.3).toBeGreaterThanOrEqual((w + 1024) / 2);
+    expect(layout.hazeAlpha).toBe(0.95);
+  });
+
+  it('should keep the core on screen and dim the haze when the column leaves no room (1280x800)', () => {
+    const layout = galaxyLayout(1280, 800);
+    expect(layout.cx).toBeLessThanOrEqual(1280);
+    expect(layout.hazeAlpha).toBeLessThan(0.7);
+  });
+
   it('should place the core in the top-right corner on a narrow phone viewport', () => {
     const layout = galaxyLayout(375, 812);
     expect(layout.cy).toBeLessThan(812 * 0.2);
@@ -84,6 +96,7 @@ describe('galaxyLayout', () => {
 
   it('should keep the widget iframe (380x600) in the top placement', () => {
     expect(galaxyLayout(380, 600).cy).toBeLessThan(600 * 0.2);
+    expect(galaxyLayout(380, 600).hazeAlpha).toBe(0.95);
   });
 });
 

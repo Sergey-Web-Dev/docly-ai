@@ -166,25 +166,30 @@ interface SkyChoice {
   readonly variant: SkyVariant;
   readonly backdrop: BackdropVariant | null;
   readonly isPaused: boolean;
+  readonly density: number;
 }
 
+const EMBED_DENSITY = 0.5;
+
 function chooseSky(pathname: string): SkyChoice {
-  if (SPACE_PATHS.includes(pathname)) return { variant: 'space', backdrop: 'space', isPaused: false };
+  if (SPACE_PATHS.includes(pathname)) return { variant: 'space', backdrop: 'space', isPaused: false, density: 1 };
   // Chat (playground and the embeddable widget) is calm and readable: a slowly rotating galaxy.
-  if (pathname.startsWith('/embed') || pathname === CHAT_PATH || pathname.startsWith(`${CHAT_PATH}/`)) return { variant: 'galaxy', backdrop: 'galaxy', isPaused: false };
+  // The widget iframe is small and sits on customers' pages: half the particles keep it light.
+  if (pathname.startsWith('/embed')) return { variant: 'galaxy', backdrop: 'galaxy', isPaused: false, density: EMBED_DENSITY };
+  if (pathname === CHAT_PATH || pathname.startsWith(`${CHAT_PATH}/`)) return { variant: 'galaxy', backdrop: 'galaxy', isPaused: false, density: 1 };
   // The rest of the dashboard, billing and checkout: aurora and cursor-linked constellations. Checkout holds still while typing.
-  if (pathname.startsWith('/dashboard')) return { variant: 'constellations', backdrop: 'aurora', isPaused: pathname.startsWith(CHECKOUT_PATH) };
-  return { variant: 'light', backdrop: null, isPaused: false };
+  if (pathname.startsWith('/dashboard')) return { variant: 'constellations', backdrop: 'aurora', isPaused: pathname.startsWith(CHECKOUT_PATH), density: 1 };
+  return { variant: 'light', backdrop: null, isPaused: false, density: 1 };
 }
 
 /** Fixed full-viewport sky behind the whole app: one of three space formats, or the light field elsewhere. */
 export function StarfieldBackground(): React.ReactElement {
   const pathname = usePathname();
-  const { variant, backdrop, isPaused } = chooseSky(pathname);
+  const { variant, backdrop, isPaused, density } = chooseSky(pathname);
   return (
     <>
       {backdrop ? <SpaceBackdrop variant={backdrop} isPaused={isPaused} /> : null}
-      <StarfieldCanvas variant={variant} density={1} opacity={1} isPaused={isPaused} />
+      <StarfieldCanvas variant={variant} density={density} opacity={1} isPaused={isPaused} />
     </>
   );
 }

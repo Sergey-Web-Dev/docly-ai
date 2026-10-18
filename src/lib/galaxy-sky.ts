@@ -95,16 +95,29 @@ export interface GalaxyLayout {
   readonly cy: number;
   /** Semi-major axis in px. */
   readonly radius: number;
+  /** Opacity of the warm haze: lowered when the core has to overlap the chat column. */
+  readonly hazeAlpha: number;
 }
+
+/** Width of the `max-w-5xl` dashboard / chat column, in px. */
+const CONTENT_COLUMN_PX = 1024;
+const HAZE_ALPHA = 0.95;
+const HAZE_ALPHA_OVER_TEXT = 0.55;
+const MAX_CORE_X_SHARE = 0.97;
 
 /** Bottom-right on a wide viewport (beside the chat column), top-right corner on narrow / portrait ones. The bright core never sits behind text. */
 export function galaxyLayout(width: number, height: number): GalaxyLayout {
   const isNarrow = width < 700 || height > width * 1.05;
   if (isNarrow) {
     // Core in the top-right corner, clear of the title and the chat text; the arms sweep across the screen.
-    return { cx: width * 0.86, cy: height * 0.13, radius: Math.min(width * 0.95, height * 0.5) };
+    return { cx: width * 0.86, cy: height * 0.13, radius: Math.min(width * 0.95, height * 0.5), hazeAlpha: HAZE_ALPHA };
   }
-  return { cx: width * 0.8, cy: height * 0.6, radius: Math.min(width * 0.36, height * 0.55) };
+  const radius = Math.min(width * 0.36, height * 0.55);
+  // Prefer the core just right of the centred chat column; on viewports too narrow for that, keep it on screen and dim the haze.
+  const columnRight = (width + CONTENT_COLUMN_PX) / 2;
+  const cx = Math.min(Math.max(width * 0.8, columnRight + radius * 0.3), width * MAX_CORE_X_SHARE);
+  const isClearOfColumn = cx - radius * 0.3 >= columnRight;
+  return { cx, cy: height * 0.6, radius, hazeAlpha: isClearOfColumn ? HAZE_ALPHA : HAZE_ALPHA_OVER_TEXT };
 }
 
 /** In-plane rotation angle in radians at `time` ms. */
