@@ -244,7 +244,7 @@ test('widget on another origin, unpublish, demo billing and public quota', async
     expectNoCardDigits(requests.all, ['4242424242424242', '4000000000000002', '4111111111111111']);
     expect(requests.all.some((entry) => entry.includes('tok_visa'))).toBe(true);
 
-    await page.getByRole('link', { name: 'Back to billing' }).click();
+    await success.getByRole('link', { name: 'Back to billing' }).click();
     await expect(page).toHaveURL(/\/dashboard\/billing$/);
     await expect(page.getByTestId('billing-documents')).toHaveText('1 / 10');
     await expect(page.getByRole('button', { name: 'Current plan' })).toBeDisabled();

@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { CheckoutForm } from '@/components/billing/checkout-form';
-import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { requireUser } from '@/lib/auth/require-user';
 import { getOwnPlan } from '@/lib/chatbots';
@@ -44,14 +43,7 @@ export default async function CheckoutPage(): Promise<React.ReactElement> {
             <CardTitle as="h3">Payment details</CardTitle>
           </CardHeader>
           <CardContent>
-            {plan.id === 'pro' ? (
-              <div className="space-y-3">
-                <p role="status">You&apos;re already on Pro.</p>
-                <Link href="/dashboard/billing" className={buttonVariants({ variant: 'outline' })}>Back to billing</Link>
-              </div>
-            ) : (
-              <CheckoutForm email={user.email ?? ''} priceLabel={PRICE_LABEL} />
-            )}
+            <CheckoutForm email={user.email ?? ''} priceLabel={PRICE_LABEL} isAlreadyPro={plan.id === 'pro'} />
           </CardContent>
         </Card>
       </div>

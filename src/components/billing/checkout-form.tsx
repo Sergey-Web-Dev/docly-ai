@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 interface CheckoutFormProps {
   readonly email: string;
   readonly priceLabel: string;
+  readonly isAlreadyPro: boolean;
 }
 
 interface Receipt {
@@ -54,7 +55,7 @@ function useIsHydrated(): boolean {
   return useSyncExternalStore(() => () => undefined, () => true, () => false);
 }
 
-export function CheckoutForm({ email, priceLabel }: CheckoutFormProps): React.ReactElement {
+export function CheckoutForm({ email, priceLabel, isAlreadyPro }: CheckoutFormProps): React.ReactElement {
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const [number, setNumber] = useState('');
@@ -134,7 +135,16 @@ export function CheckoutForm({ email, priceLabel }: CheckoutFormProps): React.Re
     }
   }
 
+  // The receipt wins over the Pro check: the refresh after a successful payment flips isAlreadyPro to true.
   if (receipt) return <SuccessPanel receipt={receipt} panelRef={receiptRef} />;
+  if (isAlreadyPro) {
+    return (
+      <div className="space-y-3">
+        <p role="status">You&apos;re already on Pro.</p>
+        <Link href="/dashboard/billing" className={buttonVariants({ variant: 'outline' })}>Back to billing</Link>
+      </div>
+    );
+  }
 
   const fieldProps = (field: CardField): { error: string | undefined; disabled: boolean } => ({ error: errors[field], disabled: isDisabled });
 

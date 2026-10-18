@@ -134,8 +134,8 @@ export async function completeDemoCheckout(input: CheckoutInput): Promise<Checko
     await changePlan(createAdminClient(), user.id, 'pro');
     revalidatePath('/dashboard', 'layout');
     return { ok: true, chargeId: charge.chargeId, ...(last4 ? { last4 } : {}) };
-  } catch {
-    console.error('[checkout] failed', { userId: user.id, token });
+  } catch (error) {
+    console.error('[checkout] failed', { userId: user.id, token, error: error instanceof Error ? error.message : typeof error });
     return { ok: false, error: GENERIC_ERROR };
   }
 }
