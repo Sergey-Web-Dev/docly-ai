@@ -14,9 +14,16 @@ Your docs. Instant answers. Upload company documents (PDF or TXT), ask questions
 4. Ask a question in the dashboard chat. Answers come only from your documents; anything else gets "I don't know based on these documents."
 5. Switch **Published** on and copy the embed snippet.
 6. Open the demo site with your bot: `https://docly-ai-demo-site.vercel.app/?app=https://docly-ai-ruddy.vercel.app&bot=<BOT_ID>` (the bot id is in the embed snippet on the dashboard). Click the launcher and ask the same question as a visitor.
-7. Open **Plan** (`/dashboard/billing`) and press **Demo upgrade, no payment**. Limits change immediately (2 to 10 documents, 30 to 300 messages per month).
+7. Open **Plan** (`/dashboard/billing`) and press **Upgrade to Pro**, then pay in the demo checkout with the test card `4242 4242 4242 4242` (any future date, any CVC; the **Fill test card** button does it for you). Limits change immediately (2 to 10 documents, 30 to 300 messages per month).
 
-Billing is simulated. No payment details are collected and no money is charged.
+### Billing and the demo checkout
+
+Billing is simulated and no money is ever charged, but the upgrade goes through a Stripe-style demo checkout (`/dashboard/billing/checkout`) where you type card details.
+
+- **Test cards only.** `4242 4242 4242 4242` (Visa, succeeds), `5555 5555 5555 4444` (Mastercard, succeeds), `4000 0000 0000 0002` (declined), `4000 0000 0000 9995` (insufficient funds). Any other number, even a Luhn-valid one, is rejected in the browser with a demo-only message.
+- **Tokenization in the browser.** The card number, expiry and CVC are read only by client code (`src/lib/payments/demo-card.ts`), which turns an allowed test card into a Stripe-style test token (`tok_visa`, ...). Only that token, plus the brand and last four digits for the receipt, is sent to the `completeDemoCheckout` Server Action. Card fields use `autocomplete="off"` and non-standard names, are cleared after submit and on unmount, and are never logged or stored. An E2E test asserts that no request contains the card digits.
+- **Server side.** `completeDemoCheckout` validates the token against the known test tokens, charges through a mock payment provider (`src/lib/payments/`) and only then sets the plan to Pro. `setPlan` is limited to the downgrade to Free ("Cancel subscription (demo)"); nothing can set Pro without a successful charge.
+- **Deviation from the SDD.** SDD section 4 says no card details are collected. This demo deliberately lets the user type card fields for realism; it stays safe on a public site because only test cards are accepted and card data never leaves the browser. Real Stripe would replace the mock provider (`STRIPE_SECRET_KEY` and PaymentIntents) and use Stripe Elements instead of these inputs.
 
 ## Architecture
 
@@ -148,7 +155,7 @@ With the `app` and `bot` query parameters the page injects the widget script for
 - Ingestion is synchronous (at most 5 MB, 200 chunks, 60 second function limit), with no queue.
 - No streaming answers, no source citations and no saved chat history. The conversation lives in the browser tab only.
 - One bot per account.
-- Billing is simulated: the Free/Pro switch changes the enforced limits but collects no payment. A downgrade deletes nothing; new uploads are blocked until the document count is below the Free limit.
+- Billing is simulated: the demo checkout accepts only Stripe test cards and charges nothing; Pro changes the enforced limits. A downgrade deletes nothing; new uploads are blocked until the document count is below the Free limit.
 - Gemini free tier has per-minute and per-day rate limits (answers can fail with a friendly "temporarily unavailable" message), and on the free tier Google may use prompts to improve its products. Do not upload confidential documents to a free-tier key.
 - A Supabase free project pauses after about a week of inactivity. Open the dashboard to wake it before a review.
 - Public rate limits, all per bot: 10 messages per minute per visitor, 20 per hour per visitor, and 30 per minute across all visitors. Visitors share the owner's monthly quota (Free 30, Pro 300).
