@@ -19,9 +19,10 @@ export default async function DashboardLayout({ children }: { readonly children:
           <nav aria-label="Main" className="flex items-center gap-4">
             <Link href="/dashboard" className="font-semibold">Docly AI</Link>
             <Link href="/dashboard/chat" className="text-sm text-muted-foreground hover:text-foreground">Chat</Link>
+            <Link href="/dashboard/billing" className="text-sm text-muted-foreground hover:text-foreground">Plan</Link>
           </nav>
           <div className="flex items-center gap-3">
-            <Badge variant="secondary" data-testid="plan-badge">{plan.name} plan</Badge>
+            <Link href="/dashboard/billing"><Badge variant="secondary" data-testid="plan-badge">{plan.name} plan</Badge></Link>
             <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>
             <form action={signOut}><Button variant="ghost" size="sm" type="submit">Sign out</Button></form>
           </div>

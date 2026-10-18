@@ -15,7 +15,7 @@ export async function POST(request: Request): Promise<Response> {
     if (typeof body !== 'object' || body === null || Array.isArray(body)) throw new AppError('VALIDATION', INVALID_REQUEST);
     const parsed = chatRequestSchema.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION', parsed.error.issues[0]?.message ?? INVALID_REQUEST);
-    const target = await resolveChatAccess(parsed.data.botId);
+    const target = await resolveChatAccess(parsed.data.botId, request.headers);
     const result = await answerQuestion(createAdminClient(), target, parsed.data.message);
     return Response.json(result);
   } catch (error) {

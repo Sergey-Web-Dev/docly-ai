@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Acme Robotics</title>
+  <meta name="description" content="Acme Robotics: a demo company site that hosts the Docly AI chat widget.">
+  <!--
+    Docly AI demo site: a static page on its own origin that embeds the chat widget.
+
+    Try any deployment without editing this file:
+      <DEMO_URL>/?app=https://YOUR-APP.vercel.app&bot=YOUR_BOT_ID
+      http://localhost:4000/?app=http://localhost:3000&bot=<uuid>
+
+    The "app" parameter is only accepted for http://localhost:<port>, http://127.0.0.1:<port> and the origins listed in
+    ALLOWED_APP_ORIGINS (top of the script at the bottom of this file): add your deployed app origin there.
+
+    Serve it locally on a different origin than the app (the app runs on :3000):
+      python3 -m http.server 4000 -d demo-site
+
+    Deploy it:
+      - Vercel: create a second project from this repository and set "Root Directory" to demo-site/ (no build command).
+      - GitHub Pages: publish the demo-site/ folder.
+    For a permanent setup, replace the placeholders in the snippet below and uncomment it.
+  -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #4b5563;
+      --surface: #f3f4f6;
+      --border: #e5e7eb;
+      --accent: #4f46e5;
+      --code-bg: #111827;
+      --code-fg: #e5e7eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --fg: #f1f5f9;
+        --muted: #94a3b8;
+        --surface: #1e293b;
+        --border: #334155;
+        --accent: #818cf8;
+        --code-bg: #020617;
+        --code-fg: #e2e8f0;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+    header.site { border-bottom: 1px solid var(--border); }
+    header.site .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .brand { font-weight: 700; letter-spacing: 0.01em; }
+    nav a { color: var(--muted); text-decoration: none; margin-left: 20px; }
+    nav a:hover { color: var(--fg); }
+    .hero { padding: 72px 0 48px; }
+    .hero h1 { font-size: clamp(2rem, 6vw, 3.25rem); line-height: 1.15; margin: 0 0 16px; }
+    .hero p { color: var(--muted); font-size: 1.125rem; max-width: 56ch; margin: 0 0 24px; }
+    .button {
+      display: inline-block; padding: 12px 20px; border-radius: 8px;
+      background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
+    }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 16px 0 48px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .card h3 { margin: 0 0 8px; }
+    .card p { margin: 0; color: var(--muted); }
+    h2 { margin: 48px 0 12px; }
+    section p { color: var(--muted); max-width: 70ch; }
+    .embed { border-top: 1px solid var(--border); margin-top: 48px; padding: 32px 0 24px; }
+    pre {
+      background: var(--code-bg); color: var(--code-fg); padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.875rem; line-height: 1.5; margin: 12px 0;
+    }
+    #widget-status { font-size: 0.9rem; color: var(--muted); }
+    footer.site { border-top: 1px solid var(--border); padding: 24px 0; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <header class="site">
+    <div class="wrap">
+      <span class="brand">Acme Robotics</span>
+      <nav aria-label="Primary">
+        <a href="#products">Products</a>
+        <a href="#about">About</a>
+        <a href="#embed">Widget</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Robots that handle the boring parts of your warehouse.</h1>
+      <p>Acme Robotics builds autonomous carts and picking arms for small and mid-size logistics teams. Ask our assistant in the corner about shipping, warranty or our vacation policy.</p>
+      <a class="button" href="#products">See our products</a>
+    </section>
+
+    <section id="products" aria-labelledby="products-title">
+      <h2 id="products-title">Products</h2>
+      <div class="grid">
+        <div class="card"><h3>AcmeCart</h3><p>A self-driving cart that follows pickers and carries up to 120 kg.</p></div>
+        <div class="card"><h3>AcmeArm</h3><p>A compact picking arm that sorts parcels at 600 items per hour.</p></div>
+        <div class="card"><h3>AcmeFleet</h3><p>Fleet software that plans routes and keeps every robot charged.</p></div>
+      </div>
+    </section>
+
+    <section id="about" aria-labelledby="about-title">
+      <h2 id="about-title">About us</h2>
+      <p>We started in 2019 with one prototype and a garage. Today more than 200 sites run on Acme robots, from regional pharmacies to cross-border freight hubs.</p>
+      <p>Our team of 60 is spread across three offices. We hire engineers, field technicians and support specialists, and we care about clear documentation. That is why this page lets visitors ask questions instead of searching a PDF.</p>
+    </section>
+
+    <section id="embed" class="embed" aria-labelledby="embed-title">
+      <h2 id="embed-title" style="margin-top:0">Add the assistant to your own site</h2>
+      <p>This page is a plain static file. The chat launcher in the bottom-right corner comes from one script tag:</p>
+      <pre><code id="snippet">&lt;script src="https://YOUR-APP.vercel.app/widget.js" data-bot-id="YOUR_BOT_ID" async&gt;&lt;/script&gt;</code></pre>
+      <p id="widget-status" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="wrap">&copy; 2026 Acme Robotics, a fictional company used to demo Docly AI.</div>
+  </footer>
+
+  <!-- Permanent setup: replace the placeholders, then uncomment.
+  <script src="https://YOUR-APP.vercel.app/widget.js" data-bot-id="YOUR_BOT_ID" async></script>
+  -->
+
+  <script>
+    // Test any deployment without editing this file: ?app=https://your-app.vercel.app&bot=<bot uuid>
+    // The page loads a script from the "app" origin, so only localhost and the origins listed here are accepted.
+    // To use your deployed app, add its origin (scheme + host, no path) below, e.g. 'https://my-docly.vercel.app'.
+    var ALLOWED_APP_ORIGINS = [];
+
+    (function () {
+      'use strict';
+      var LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1):\d{1,5}$/;
+      var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      var params = new URLSearchParams(window.location.search);
+      var app = params.get('app');
+      var bot = params.get('bot');
+      var status = document.getElementById('widget-status');
+      var snippet = document.getElementById('snippet');
+
+      if (!app || !bot) {
+        status.textContent = 'No widget is loaded. Open this page with ?app=<APP_URL>&bot=<BOT_ID> to try your own deployment.';
+        return;
+      }
+
+      var origin;
+      try {
+        var url = new URL(app);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('protocol');
+        origin = url.origin;
+      } catch (error) {
+        status.textContent = 'The "app" parameter must be a valid http(s) URL.';
+        return;
+      }
+      if (!LOCAL_ORIGIN.test(origin) && ALLOWED_APP_ORIGINS.indexOf(origin) === -1) {
+        status.textContent = 'Rejected: ' + origin + ' is not an allowed app origin. Use http://localhost:<port> or add the origin to ALLOWED_APP_ORIGINS at the top of this script.';
+        return;
+      }
+      if (!UUID.test(bot)) {
+        status.textContent = 'The "bot" parameter must be a bot id (uuid).';
+        return;
+      }
+
+      var script = document.createElement('script');
+      script.src = origin + '/widget.js';
+      script.async = true;
+      script.setAttribute('data-bot-id', bot);
+      document.body.appendChild(script);
+
+      snippet.textContent = '<script src="' + origin + '/widget.js" data-bot-id="' + bot + '" async><\/script>';
+      status.textContent = 'Widget loaded from ' + origin + '. Click the launcher in the bottom-right corner.';
+    })();
+  </script>
+</body>
+</html>

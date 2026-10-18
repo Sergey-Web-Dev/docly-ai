@@ -38,7 +38,7 @@ describe('POST /api/chat', () => {
     const response = await POST(post(JSON.stringify({ botId: BOT_ID, message: '  hi  ' })));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ answer: 'A', isGrounded: true, usage: { used: 1, limit: 30 } });
-    expect(resolveChatAccess).toHaveBeenCalledWith(BOT_ID);
+    expect(resolveChatAccess).toHaveBeenCalledWith(BOT_ID, expect.any(Headers));
     expect(answerQuestion).toHaveBeenCalledWith(admin, target, 'hi');
   });
 

@@ -127,7 +127,7 @@ export function DocumentsPanel({ documents, planName, planLimit }: DocumentsPane
           {error ? (
             <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-destructive">
               <span>{error}</span>
-              {upgrade ? <Link href="/#pricing" className={buttonVariants({ size: 'sm' })}>Upgrade to Pro</Link> : null}
+              {upgrade ? <Link href="/dashboard/billing" className={buttonVariants({ size: 'sm' })}>Upgrade to Pro</Link> : null}
             </div>
           ) : null}
         </form>

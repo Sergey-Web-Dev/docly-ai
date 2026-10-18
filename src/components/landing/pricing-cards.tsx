@@ -15,7 +15,7 @@ function planFeatures(plan: Plan): readonly string[] {
     `${plan.documents} documents`,
     `${plan.messagesPerMonth} messages / month`,
     plan.hasWidget ? 'Embeddable chat widget' : 'No embeddable widget',
-    plan.hasBranding ? 'Accent color' : 'Default branding',
+    plan.hasBranding ? 'Accent color (coming soon)' : 'Default branding',
   ];
 }
 

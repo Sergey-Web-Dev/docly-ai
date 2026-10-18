@@ -18,8 +18,8 @@
 |---|---|---|---|---|
 | 01 | `writing-plans-plan-epic-01.md` | `docs/epics/epic-01-foundation.md` | ✅ Done (deploy pending) | Sign up / in / out on deployed preview; landing pricing from `PLANS` |
 | 02 | `writing-plans-plan-epic-02.md` | `docs/epics/epic-02-chatbot-builder.md` | ✅ Done | PDF/TXT → `Ready`, chunks scoped by `chatbot_id`; doc quota |
-| 03 | `writing-plans-plan-epic-03.md` | `docs/epics/epic-03-ai-chat.md` | ✅ Done (branch `feature/epic-03-ai-chat`) | Playground answers 3 known Qs, declines unrelated; message quota |
-| 04 | `writing-plans-plan-epic-04.md` | `docs/epics/epic-04-widget-billing.md` | ⏳ | Widget answers on another origin; demo upgrade changes limits; release |
+| 03 | `writing-plans-plan-epic-03.md` | `docs/epics/epic-03-ai-chat.md` | ✅ Done (PR #1) | Playground answers 3 known Qs, declines unrelated; message quota |
+| 04 | `writing-plans-plan-epic-04.md` | `docs/epics/epic-04-widget-billing.md` | ✅ Done (deploy pending) | Widget answers on another origin; demo upgrade changes limits; release |
 
 Plans are written epic by epic so each later plan reflects the real code produced by the previous one.
 

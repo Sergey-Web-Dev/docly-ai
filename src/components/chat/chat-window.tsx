@@ -1,10 +1,11 @@
 'use client';
 
 import { Loader2, SendHorizontal } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MAX_MESSAGE_CHARS } from '@/lib/rag-config';
+import { cn } from '@/lib/utils';
 import { ChatMessage, type ChatMessageData } from './chat-message';
 
 export interface ChatWindowProps {
@@ -13,6 +14,7 @@ export interface ChatWindowProps {
   readonly welcomeMessage: string;
   readonly mode: 'owner' | 'public';
   readonly initialUsage?: { readonly used: number; readonly limit: number };
+  readonly className?: string;
 }
 
 interface ApiError {
@@ -25,15 +27,21 @@ interface ApiAnswer {
   readonly usage: { readonly used: number; readonly limit: number } | null;
 }
 
+function subscribeNever(): () => void {
+  return () => undefined;
+}
+
 const FALLBACK_ERROR = 'Something went wrong. Please try again.';
 
-export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage }: ChatWindowProps): React.ReactElement {
+export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage, className }: ChatWindowProps): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessageData[]>([{ id: 'welcome', role: 'assistant', content: welcomeMessage }]);
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
   const [usage, setUsage] = useState(initialUsage ?? null);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [validation, setValidation] = useState<string | null>(null);
+  // false on the server and during hydration, true once mounted: inputs stay disabled until React is interactive.
+  const ready = useSyncExternalStore(subscribeNever, () => true, () => false);
   const endRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
 
@@ -106,10 +114,10 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage 
   }
 
   const tooLong = input.length > MAX_MESSAGE_CHARS;
-  const canSend = !pending && input.trim().length > 0 && !tooLong;
+  const canSend = ready && !pending && input.trim().length > 0 && !tooLong;
 
   return (
-    <section aria-label={`Chat with ${botName}`} className="flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+    <section aria-label={`Chat with ${botName}`} className={cn('flex h-[min(70dvh,640px)] min-h-[420px] flex-col overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10', className)}>
       {mode === 'owner' && usage ? (
         <p data-testid="chat-usage" className="border-b px-4 py-2 text-xs text-muted-foreground">
           {usage.used} / {usage.limit} messages this month
@@ -138,6 +146,7 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage 
         <div ref={endRef} />
       </div>
       <form
+        data-ready={ready ? 'true' : undefined}
         className="space-y-1 border-t p-3"
         onSubmit={(event) => {
           event.preventDefault();
@@ -148,6 +157,8 @@ export function ChatWindow({ botId, botName, welcomeMessage, mode, initialUsage 
           <Textarea
             aria-label="Your question"
             aria-invalid={tooLong}
+            disabled={!ready}
+            data-ready={ready ? 'true' : undefined}
             placeholder="Ask a question…"
             rows={2}
             value={input}

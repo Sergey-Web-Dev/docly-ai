@@ -53,7 +53,7 @@ test('owner sets up a bot, uploads documents, hits the quota and deletes one', a
   await fileInput.setInputFiles({ name: 'extra.txt', mimeType: 'text/plain', buffer: Buffer.from('Extra document that should exceed the Free plan quota.') });
   await upload.click();
   await expect(page.getByRole('alert').filter({ hasText: 'Free plan allows 2 documents' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/#pricing');
+  await expect(page.getByRole('link', { name: 'Upgrade to Pro' })).toHaveAttribute('href', '/dashboard/billing');
 
   // 6. Delete notes.txt -> gone, usage 1 / 2.
   page.once('dialog', (dialog) => void dialog.accept());

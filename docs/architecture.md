@@ -52,7 +52,8 @@ src/
 │   ├── login/page.tsx, signup/page.tsx
 │   ├── dashboard/
 │   │   ├── layout.tsx                # Auth guard (server), header, plan badge, sign-out
-│   │   ├── page.tsx                  # Bot settings · Documents · Embed code · Plan modal
+│   │   ├── page.tsx                  # Bot settings · Documents · Embed code
+│   │   ├── billing/page.tsx          # Plan & billing (demo upgrade/downgrade)
 │   │   ├── chat/page.tsx             # Chat playground
 │   │   └── actions.ts                # Server Actions: createBot, updateBot, setPublished, deleteDocument, setPlan
 │   ├── embed/[botId]/page.tsx        # Public iframe chat
@@ -67,12 +68,15 @@ src/
 │   ├── plans.ts                      # PLANS = { free: {...}, pro: {...} } — single source of limits
 │   ├── ai.ts                         # embedTexts(), embedQuery(), generateAnswer() — the only Gemini code
 │   ├── ingest.ts                     # validateFile(), extractText(), chunkText(), ingestDocument()
+│   ├── chat-access.ts                # resolveChatAccess(): owner mode or public mode (+ rate limit)
+│   ├── client-key.ts                 # clientIp(), normalizeIp(), ipHash(), rateLimitKey(): salted hash, no raw IPs
+│   ├── billing.ts                    # getBillingSummary(), changePlan()
 │   ├── chat.ts                       # answerQuestion(): quota → retrieve → prompt → generate
 │   ├── prompt.ts                     # buildPrompt(), NOT_FOUND_ANSWER
 │   ├── schemas.ts                    # Zod schemas (bot form, chat request)
 │   └── errors.ts                     # AppError + toResponse()
 └── proxy.ts                          # Next.js 16 proxy: Supabase session refresh + /dashboard redirect
-public/widget.js                      # ~60 lines vanilla JS loader
+public/widget.js                      # ~5 KB vanilla JS loader (closed Shadow DOM, no dependencies)
 demo-site/index.html                  # Static page with the snippet
 supabase/migrations/                  # Schema, RLS, storage policies, SQL functions
 ```
@@ -96,7 +100,7 @@ rate_limits (standalone)
 | `documents` | `id`, `chatbot_id` (FK, cascade), `file_name`, `storage_path`, `size_bytes`, `status` `processing\|ready\|failed`, `error_message`, `created_at` | `UNIQUE(chatbot_id, file_name)` blocks duplicate ingestion |
 | `document_chunks` | `id`, `document_id` (FK, cascade), `chatbot_id` (FK, cascade), `content`, `embedding vector(768)` | HNSW index (cosine), index on `chatbot_id` |
 | `usage_counters` | `owner_id` (FK, cascade), `month` date, `message_count` int ≥ 0 | PK `(owner_id, month)` |
-| `rate_limits` | `key` text, `window_start` timestamptz, `count` int | PK `(key, window_start)`; key = hash(IP)+bot id, no raw IPs |
+| `rate_limits` | `key` text, `window_start` timestamptz, `count` int | PK `(key, window_start)`; keys `chat:<bot>:<ipHash>[:h]` and `chat:<bot>`, no raw IPs |
 
 Storage: bucket `documents` (private, 5 MB, PDF/TXT MIME), path `{owner_id}/{document_id}`.
 
@@ -135,7 +139,7 @@ Two layers, both required:
 | `create_document(chatbot_id, file_name, size, limit)` | Locks the bot row, marks `processing` rows older than 10 min as `failed`, counts docs, inserts a `processing` row with `storage_path = {owner_id}/{document_id}`. Raises SQLSTATE `DQ001` (quota), `DQ002` (duplicate name), `P0002` (bot not found), `22023` (invalid limit) |
 | `complete_document(document_id, size_bytes, chunks jsonb)` | In one transaction inserts all chunks and sets the document `ready`; raises `DQ003` if it is not `processing` |
 | `match_chunks(chatbot_id, embedding, k, min_similarity)` | Cosine search **always** filtered by `chatbot_id` |
-| `hit_rate_limit(key, window_seconds, max)` | Fixed-window counter; deletes stale rows |
+| `hit_rate_limit(key, window_seconds, max)` | Fixed-window counter (atomic upsert); returns `true` while `count <= max`; occasionally deletes rows older than 2 hours (index on `window_start`); raises `22023` on invalid arguments, including windows over 3600 s |
 
 Limits are passed in from `lib/plans.ts`, so plan numbers exist in one place only.
 
@@ -162,7 +166,7 @@ Synchronous on purpose: the input is bounded (5 MB / 200 chunks), so it fits the
 
 ### 5.3 Chat (Epics 03 + 04) — `POST /api/chat { botId, message }`
 1. Body must be a JSON object, else `VALIDATION` "Invalid request."; Zod: `botId` uuid, `message` 1–1,000 chars.
-2. **Access:** the bot is looked up by `id = botId`. If the session user owns it → *owner mode* (ownerId and plan from the session). Otherwise → *public mode* (Epic 04, `resolvePublicAccess`): the bot must exist and be published, `ownerId` and `plan` come from the bot row and the owner's profile via the admin client (never from the session), then `hit_rate_limit(hash(ip)+botId, 60, 10)`. Until Epic 04 the public branch throws `BOT_UNAVAILABLE`.
+2. **Access:** the bot is looked up by `id = botId`. If the session user owns it → *owner mode* (ownerId and plan from the session). Otherwise → *public mode* (Epic 04, `resolvePublicAccess`): the bot must exist and be published, `ownerId` and `plan` come from the bot row and the owner's profile via the admin client (never from the session), then the three `hit_rate_limit` checks (see §5.4). 
 3. `reserve_message(owner, PLANS[plan].messages)` returns the reserved UTC month (`YYYY-MM-01`), or `null` when over the limit → `QUOTA_EXCEEDED`. The caller keeps this month: every `refund_message(owner, month)` passes it back, so a refund can never hit another month's row (e.g. across midnight UTC). A failing reserve RPC → `PROVIDER_UNAVAILABLE` (503).
 4. `embedQuery` (5 s timeout) → `match_chunks(botId, vec, 5, 0.55)`.
 5. No match → `refund_message`, return `NOT_FOUND_ANSWER` ("I don't know based on these documents.") without calling Gemini.
@@ -177,12 +181,17 @@ The same function `answerQuestion()` serves both modes, so the playground and wi
 
 ### 5.4 Widget (Epic 04)
 - Snippet: `<script src="https://<app>/widget.js" data-bot-id="<uuid>" async></script>`.
-- `widget.js` reads `data-bot-id` from `document.currentScript`, takes the app origin from its `src`, adds a launcher button and a hidden `<iframe src="<origin>/embed/<botId>">` (~380px panel, full width on mobile, close button + Esc).
-- `/embed/[botId]` is a server component. It loads only `name, welcome_message, is_published`. Unknown or unpublished bot → "This assistant is unavailable". Otherwise it renders `ChatWindow`, which posts to `/api/chat` on the same origin (so no CORS).
-- In public mode, a quota error shows a neutral "temporarily unavailable" message with no upgrade CTA.
+- `widget.js` reads `data-bot-id` from `document.currentScript`, takes the app origin from its `src` (or an optional validated `data-app-origin` for CDN/proxy hosting), mounts everything inside a closed Shadow DOM so host CSS can't break it, adds a launcher button and an `<iframe src="<origin>/embed/<botId>">` created on first open (~380px panel, full screen on small viewports). Esc closes it; so does a `window.postMessage({ type: 'docly:close' })` from the embed page, accepted only when `event.origin` is the app origin and `event.source` is the widget's iframe. On small viewports (≤ 480 px wide or ≤ 500 px tall) the panel is full screen, `aria-modal`, locks host scrolling and closes when focus leaves it.
+- `/embed/[botId]` is a dynamic server component. It loads only `name, welcome_message, is_published` with the admin client. Unknown or unpublished bot → "This assistant is unavailable". Otherwise it renders `ChatWindow mode="public"`, which posts to `/api/chat` on the same origin (so no CORS). Its close button posts `docly:close` to the parent window.
+- Headers (`next.config.ts`): `/embed/*` sends `Content-Security-Policy: frame-ancestors *`; every other route sends `frame-ancestors 'none'` and `X-Frame-Options: DENY`.
+- **Public access** (`resolvePublicAccess` in `lib/chat-access.ts`, used when the session user does not own the bot, including signed-out visitors): the admin client must find a published bot (else `BOT_UNAVAILABLE`), the owner's plan is read from `profiles` (a failed read throws, never defaulting to Free), (after the limits, so a flood never reaches `profiles`). Three limits run in order, and any denial is `RATE_LIMITED`: per visitor and bot per minute (`chat:<bot>:<ipHash>`, 60 s, 10, `PUBLIC_RATE_LIMIT`), per visitor and bot per hour (`chat:<bot>:<ipHash>:h`, 3600 s, 20, `PUBLIC_RATE_LIMIT_HOURLY`) and per bot across all visitors (`chat:<bot>`, 60 s, 30, `PUBLIC_BOT_RATE_LIMIT`). A failing RPC or a missing `RATE_LIMIT_SALT` is `PROVIDER_UNAVAILABLE` (logged).
+- **Rate-limit key:** `chat:<botId>:<first 32 hex of sha256(ip + "|" + RATE_LIMIT_SALT)>` (`lib/client-key.ts`). The IP is normalised before hashing (IPv4 unchanged, IPv6 reduced to its /64, IPv4-mapped IPv6 treated as IPv4). Headers are trusted only when `process.env.VERCEL` is set: `x-vercel-forwarded-for`, else `x-real-ip`, else the left-most `x-forwarded-for` entry. Elsewhere the right-most `x-forwarded-for` hop (appended by our own proxy) or `x-real-ip` is used, otherwise `unknown` (logged once). Raw IPs are never stored. The limiter is therefore reliable only behind Vercel.
+- **Fixed-window bursts:** counters use fixed windows, so a burst that straddles a window boundary can reach up to about twice the configured max for a moment.
+- The visitor's message counts against the owner's monthly quota. In public mode a quota error shows a neutral "temporarily unavailable" message with no upgrade CTA.
+- The owner turns publishing on and off with the `setPublished` Server Action, which updates `chatbots.is_published` through the user client (the owner holds the column grant; RLS scopes the row).
 
 ### 5.5 Mock billing (Epic 04)
-The plan modal reads `PLANS` and current usage. The **"Demo upgrade — no payment"** button opens a confirmation dialog, then calls the `setPlan` Server Action, which updates `profiles.plan` through the admin client. A downgrade deletes nothing: `create_document` blocks uploads once the document count reaches the Free limit, and `reserve_message` applies the Free limit right away.
+`/dashboard/billing` is a page (not a modal). It shows usage from `getBillingSummary` (plan, documents `used/limit`, messages `used/limit`, `isOverDocumentLimit`) and the `PLANS` cards. The **"Demo upgrade — no payment"** button asks for an inline confirmation, then calls the `setPlan` Server Action, which validates the plan id and runs `billing.changePlan` (`update profiles set plan where id = <session user>`) with the admin client. A downgrade deletes nothing: `create_document` blocks uploads until the document count is below the Free limit, and `reserve_message` applies the Free limit right away. Nothing collects card data.
 
 ---
 
@@ -242,7 +251,7 @@ CI scripts: `lint`, `typecheck`, `test`, `build`, `test:e2e`.
 | 01 Foundation | Scaffold, `lib/supabase/*`, middleware, `profiles` + trigger, `lib/plans.ts`, landing, auth pages, dashboard layout, Vercel deploy |
 | 02 Chatbot Builder | `chatbots`, `documents`, `document_chunks`, bucket and policies, `create_document`, `lib/ingest.ts`, `lib/ai.ts` (embeddings), dashboard bot and documents sections |
 | 03 AI Chat | `usage_counters`, `reserve_message`/`refund_message`, `match_chunks`, `lib/chat.ts`, `lib/prompt.ts`, `lib/ai.ts` (generate), `/api/chat` owner mode, playground |
-| 04 Widget & Billing | Public mode and `hit_rate_limit`, `/embed/[botId]`, `public/widget.js`, framing headers, `setPlan` and plan modal, `demo-site/`, README, E2E, final deploy |
+| 04 Widget & Billing | Public mode and `hit_rate_limit`, `/embed/[botId]`, `public/widget.js`, framing headers, `setPlan` and the `/dashboard/billing` page, `demo-site/`, README, E2E, final deploy |
 
 ---
 

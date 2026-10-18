@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatRequestSchema, parseBotSettings, parseCredentials } from '@/lib/schemas';
+import { chatRequestSchema, isPublishedSchema, parseBotSettings, parseCredentials, planIdSchema } from '@/lib/schemas';
 
 function form(email: string, password: string): FormData {
   const data = new FormData();
@@ -82,5 +82,25 @@ describe('chatRequestSchema', () => {
 
   it('should reject a bot id that is not a uuid', () => {
     expect(chatRequestSchema.safeParse({ botId: 'nope', message: 'hi' }).success).toBe(false);
+  });
+});
+
+describe('isPublishedSchema', () => {
+  it.each([true, false])('should accept the boolean %s', (value) => {
+    expect(isPublishedSchema.safeParse(value).success).toBe(true);
+  });
+
+  it.each(['true', 1, 0, null, undefined])('should reject the non-boolean %s', (value) => {
+    expect(isPublishedSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('planIdSchema', () => {
+  it.each(['free', 'pro'])('should accept the plan id %s', (value) => {
+    expect(planIdSchema.parse(value)).toBe(value);
+  });
+
+  it.each(['enterprise', 'PRO', '', null, 1])('should reject the unknown plan %s', (value) => {
+    expect(planIdSchema.safeParse(value).success).toBe(false);
   });
 });
