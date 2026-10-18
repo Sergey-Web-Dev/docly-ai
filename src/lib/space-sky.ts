@@ -1,4 +1,4 @@
-import { createRng } from '@/lib/starfield';
+import { createRng, wrapUnit } from '@/lib/starfield';
 
 /** Star colour temperatures: blue-white, white, warm yellow-white, rare orange. */
 export const SPACE_TONES: readonly (readonly [number, number, number])[] = [
@@ -7,6 +7,8 @@ export const SPACE_TONES: readonly (readonly [number, number, number])[] = [
   [255, 238, 205],
   [255, 189, 130],
 ];
+/** `fillStyle` strings for SPACE_TONES, built once so nothing is formatted per frame. */
+export const SPACE_TONE_CSS: readonly string[] = SPACE_TONES.map(([r, g, b]) => `rgb(${r},${g},${b})`);
 // Cumulative weights for the tones above.
 const TONE_CUMULATIVE: readonly number[] = [0.3, 0.66, 0.96, 1];
 const LAYERS: readonly { readonly depth: number; readonly cumulative: number }[] = [
@@ -14,6 +16,9 @@ const LAYERS: readonly { readonly depth: number; readonly cumulative: number }[]
   { depth: 0.55, cumulative: 0.82 },
   { depth: 1, cumulative: 1 },
 ];
+const LAYER_CUMULATIVE: readonly number[] = LAYERS.map((layer) => layer.cumulative);
+/** A height-only change below this (iOS address bar) does not rebuild the scene. */
+export const MINOR_HEIGHT_CHANGE_PX = 120;
 const BRIGHTNESS_EXPONENT = 5;
 const BAND_SHARE = 0.25;
 const BAND_ANGLE = -0.42;
@@ -56,10 +61,6 @@ function gaussian(rng: () => number): number {
   return (rng() + rng() + rng() + rng() - 2) / 2;
 }
 
-function wrapUnit(value: number): number {
-  return value - Math.floor(value);
-}
-
 export function generateSpaceStars(count: number, seed: number): readonly SpaceStar[] {
   const rng = createRng(seed);
   const stars: SpaceStar[] = [];
@@ -75,7 +76,7 @@ export function generateSpaceStars(count: number, seed: number): readonly SpaceS
       x = Math.min(0.9999, Math.max(0, x));
       y = wrapUnit(y);
     }
-    const layer = LAYERS[pickWeighted(rng(), LAYERS.map((l) => l.cumulative))]?.depth ?? 1;
+    const layer = LAYERS[pickWeighted(rng(), LAYER_CUMULATIVE)]?.depth ?? 1;
     const brightness = rng() ** BRIGHTNESS_EXPONENT * (isBand ? BAND_DIM : 1);
     const tone = pickWeighted(rng(), TONE_CUMULATIVE);
     const radius = 0.45 + 1.5 * Math.sqrt(brightness) + layer * 0.15;
@@ -109,11 +110,37 @@ export function spaceStarCount(width: number, height: number, density: number): 
   return Math.round(base * Math.min(1, Math.max(0.1, density)));
 }
 
-/** Scintillation: brightness and a slight size flicker from two de-synchronised waves. */
-export function twinkle(star: SpaceStar, time: number): { readonly alpha: number; readonly scale: number } {
+export interface Twinkle {
+  alpha: number;
+  scale: number;
+}
+
+/** Stars ordered by colour tone (stable), so a draw loop changes `fillStyle` once per tone. */
+export function groupByTone(stars: readonly SpaceStar[]): readonly SpaceStar[] {
+  return stars.map((star, index) => ({ star, index })).sort((a, b) => a.star.tone - b.star.tone || a.index - b.index).map((entry) => entry.star);
+}
+
+export interface ViewportKey {
+  readonly width: number;
+  readonly height: number;
+  readonly dpr: number;
+}
+
+/** True when only the height moved a little: the existing scene can be rescaled instead of rebuilt. */
+export function isMinorResize(prev: ViewportKey, next: ViewportKey): boolean {
+  return prev.width === next.width && prev.dpr === next.dpr && Math.abs(prev.height - next.height) < MINOR_HEIGHT_CHANGE_PX;
+}
+
+/**
+ * Scintillation: brightness and a slight size flicker from two de-synchronised waves.
+ * Pass `out` from a draw loop to reuse one object instead of allocating per star per frame.
+ */
+export function twinkle(star: SpaceStar, time: number, out: Twinkle = { alpha: 1, scale: 1 }): Twinkle {
   const wave = 0.6 * Math.sin(time * star.twinkleSpeed + star.phase) + 0.4 * Math.sin(time * star.twinkleSpeed * 2.3 + star.phase * 1.7);
   const depth = star.isSparkle ? 0.18 : 0.3;
-  return { alpha: 1 + depth * wave, scale: 1 + 0.08 * wave };
+  out.alpha = 1 + depth * wave;
+  out.scale = 1 + 0.08 * wave;
+  return out;
 }
 
 export interface ShootingStar {
